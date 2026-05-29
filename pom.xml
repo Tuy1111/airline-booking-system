@@ -11,6 +11,7 @@
 
     <modules>
         <module>shared/common-web</module>
+        <module>infra/service-registry</module>
         <module>infra/api-gateway</module>
         <module>services/flight-search-service</module>
         <module>services/booking-service</module>

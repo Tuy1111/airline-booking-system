@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Airline Booking System — Diagrams</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; padding: 0; background: #f8fafc; color: #1e293b;
+  }
+  header {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    color: white; padding: 30px 40px; box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  }
+  header h1 { margin: 0 0 8px; font-size: 28px; }
+  header p { margin: 0; opacity: .9; font-size: 14px; }
+  nav {
+    position: sticky; top: 0; background: white; border-bottom: 1px solid #e2e8f0;
+    padding: 12px 40px; box-shadow: 0 2px 4px rgba(0,0,0,.05); z-index: 100;
+    overflow-x: auto; white-space: nowrap;
+  }
+  nav a {
+    display: inline-block; margin-right: 18px; color: #2563eb;
+    text-decoration: none; font-size: 13px; font-weight: 500;
+  }
+  nav a:hover { text-decoration: underline; }
+  main { max-width: 1400px; margin: 0 auto; padding: 30px 40px; }
+  section {
+    background: white; border-radius: 12px; padding: 30px;
+    margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  h2 {
+    margin-top: 0; color: #1e3a8a; font-size: 22px;
+    padding-bottom: 12px; border-bottom: 2px solid #dbeafe;
+  }
+  .desc { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+  .mermaid {
+    background: #ffffff; padding: 20px; border-radius: 8px;
+    text-align: center; border: 1px solid #e2e8f0; overflow-x: auto;
+  }
+  .tip {
+    background: #fef3c7; border-left: 4px solid #f59e0b;
+    padding: 12px 16px; margin: 20px 0; border-radius: 4px; font-size: 13px;
+  }
+  .tip strong { color: #92400e; }
+  footer { text-align: center; padding: 30px; color: #64748b; font-size: 13px; }
+  .badge {
+    display: inline-block; background: #dbeafe; color: #1e40af;
+    padding: 2px 10px; border-radius: 12px; font-size: 11px;
+    font-weight: 600; margin-left: 8px; vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✈️ Airline Booking System — Diagrams</h1>
+  <p>Tất cả sơ đồ render bằng Mermaid. Chuột phải vào diagram → Save image as... (Chrome) hoặc screenshot để chèn vào Word.</p>
+</header>
+
+<nav>
+  <a href="#comm">1. Communication Diagram</a>
+  <a href="#flow">2. Booking Flow (Sequence)</a>
+  <a href="#concurrency">3. Concurrent Booking</a>
+  <a href="#saga">4. Saga Compensation</a>
+  <a href="#cb">5. Circuit Breaker</a>
+  <a href="#state">6. Booking State Machine</a>
+  <a href="#erd-flight">7. ERD flight_db</a>
+  <a href="#erd-user">8. ERD user_db</a>
+  <a href="#erd-booking">9. ERD booking_db</a>
+  <a href="#erd-payment">10. ERD payment_db</a>
+  <a href="#erd-notify">11. ERD notify_db</a>
+  <a href="#docker">12. Docker Topology</a>
+</nav>
+
+<main>
+
+<div class="tip">
+  <strong>💡 Cách export PNG:</strong>
+  Chrome → click chuột phải vào diagram → <em>Lưu hình ảnh thành...</em> (nếu Mermaid render SVG).
+  Hoặc Windows Snipping Tool (Win+Shift+S) để cắt vùng diagram.
+  Hoặc copy code mermaid vào <a href="https://mermaid.live" target="_blank">mermaid.live</a> rồi Export PNG.
+</div>
+
+<!-- 1. Communication Diagram -->
+<section id="comm">
+  <h2>1. Communication Diagram (tổng quan) <span class="badge">CHỦ ĐẠO</span></h2>
+  <div class="desc">Sơ đồ chính cho báo cáo — actors, gateway, 5 services, cross-cutting infra, Kafka + RabbitMQ, DB-per-service. Sync (solid) vs Async (dashed).</div>
+  <div class="mermaid">
+flowchart TB
+    C([👤 Customer])
+    A([👨‍💼 Admin])
+
+    subgraph EDGE["🌐 Edge"]
+        GW["<b>API GATEWAY :8080</b><br/>Routing · JWT · CORS · RateLimit"]
+    end
+
+    subgraph XCUT["⚙️ Cross-cutting Infrastructure"]
+        direction LR
+        EUR["Eureka :8761<br/>Service Registry<br/>(L7)"]
+        CFG["Config Server :8888<br/>Centralized Config<br/>(L9)"]
+        KC["Keycloak :8180<br/>Auth (JWT)<br/>(L12)"]
+        ZIP["Zipkin :9411<br/>Tracing<br/>(L15)"]
+        GRAF["Loki + Grafana :3000<br/>Logs + Metrics<br/>(L18)"]
+    end
+
+    subgraph SVC["📦 Microservices"]
+        direction LR
+        FS["<b>flight-search :8081</b><br/>Flight, Route,<br/>Airport, SeatInventory"]
+        BK["<b>booking :8082</b> ⭐<br/>Booking, BookingItem<br/>State machine + Saga<br/>(HOLD-10min)"]
+        US["<b>user :8083</b><br/>User, Passenger<br/>JWT issuer"]
+        PM["<b>payment :8084</b><br/>Payment, Transaction,<br/>Refund (Idempotency)"]
+        NT["<b>notification :8085</b><br/>Notification, Template<br/>EMAIL · SMS · PUSH"]
+    end
+
+    KAFKA[["<b>Apache Kafka :9092</b><br/>Event Stream (Pub/Sub) — L16<br/>booking.held · booking.confirmed<br/>payment.completed · payment.failed"]]
+    RABBIT[["<b>RabbitMQ :5672</b><br/>Command Queue — L17<br/>cmd.email.send · cmd.sms.send"]]
+
+    subgraph DATA["💾 Data Layer"]
+        direction LR
+        DB1[("flight_db<br/>PostgreSQL")]
+        DB2[("booking_db<br/>PostgreSQL")]
+        DB3[("user_db<br/>PostgreSQL")]
+        DB4[("payment_db<br/>PostgreSQL")]
+        DB5[("notify_db<br/>PostgreSQL")]
+        RD[("<b>Redis :6379</b><br/>seat-hold lock")]
+    end
+
+    MAIL["📧 MailHog :8025<br/>SMTP (dev)"]
+    PAYGW["💳 Mock Payment<br/>Gateway"]
+
+    C -->|HTTPS| GW
+    A -->|HTTPS| GW
+
+    GW ==>|"(2) route + JWT"| FS
+    GW ==>|"(2) route + JWT"| BK
+    GW ==>|"(2) route + JWT"| US
+    GW ==>|"(2) route + JWT"| PM
+
+    BK ==>|"(3) Feign GET"| FS
+    BK ==>|"(4) Feign GET"| US
+
+    FS --- DB1
+    BK --- DB2
+    BK --- RD
+    US --- DB3
+    PM --- DB4
+    NT --- DB5
+
+    BK -.->|"(5) publish booking.held"| KAFKA
+    PM -.->|"(7) publish payment.*"| KAFKA
+    KAFKA -.->|"(8) consume → confirm/compensate"| BK
+    BK -.->|"(9) publish booking.confirmed"| KAFKA
+    KAFKA -.->|"(10) consume"| NT
+
+    NT -.->|"(11) cmd.email.send"| RABBIT
+    RABBIT -.->|"(12) consume"| NT
+    NT -->|"(13) SMTP"| MAIL
+
+    PM -->|"(6) charge"| PAYGW
+
+    classDef svc fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+    classDef db fill:#fef3c7,stroke:#d97706
+    classDef broker fill:#1f2937,stroke:#000,color:#fff
+    classDef edge fill:#fde68a,stroke:#b45309,stroke-width:2px
+    classDef xcut fill:#ede9fe,stroke:#7c3aed
+    classDef ext fill:#fce7f3,stroke:#db2777
+    class FS,BK,US,PM,NT svc
+    class DB1,DB2,DB3,DB4,DB5,RD db
+    class KAFKA,RABBIT broker
+    class GW edge
+    class EUR,CFG,KC,ZIP,GRAF xcut
+    class MAIL,PAYGW ext
+  </div>
+</section>
+
+<!-- 2. Booking Flow Sequence -->
+<section id="flow">
+  <h2>2. Booking Flow — End-to-End Sequence</h2>
+  <div class="desc">Luồng customer đặt vé hoàn chỉnh: search → hold → pay → confirm → email.</div>
+  <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor C as 👤 Customer
+    participant GW as API Gateway
+    participant KC as Keycloak
+    participant BK as booking
+    participant FS as flight-search
+    participant US as user
+    participant R as Redis
+    participant PM as payment
+    participant PG as Payment GW
+    participant K as Kafka
+    participant NT as notification
+    participant MQ as RabbitMQ
+    participant MH as MailHog
+
+    C->>GW: POST /bookings/hold (JWT, flightId, seat)
+    GW->>KC: validate JWT
+    KC-->>GW: ✓ valid
+    GW->>BK: forward
+    BK->>FS: Feign GET seat availability
+    FS-->>BK: available + price
+    BK->>US: Feign GET user
+    US-->>BK: ACTIVE
+    BK->>R: SETNX seat:VN201:12A TTL=10m
+    R-->>BK: OK ✓
+    BK->>BK: INSERT booking (HELD) + outbox
+    BK-->>C: 201 bookingId
+    BK->>K: publish booking.held
+
+    C->>PM: POST /payments
+    PM->>PG: charge
+    PG-->>PM: SUCCESS ✓
+    PM->>K: publish payment.completed
+
+    K->>BK: consume payment.completed
+    BK->>BK: UPDATE booking=CONFIRMED
+    BK->>R: DEL seat lock
+    BK->>K: publish booking.confirmed
+
+    K->>NT: consume booking.confirmed
+    NT->>NT: render template
+    NT->>MQ: cmd.email.send
+    MQ->>NT: deliver to worker
+    NT->>MH: SMTP send
+    MH-->>C: 📧 email
+  </div>
+</section>
+
+<!-- 3. Concurrency -->
+<section id="concurrency">
+  <h2>3. Concurrent Booking ⭐</h2>
+  <div class="desc">Challenge chính của đề bài — 2 user cùng đặt 1 ghế, Redis SETNX đảm bảo chỉ 1 thắng.</div>
+  <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor A as 👤 User A
+    actor B as 👤 User B
+    participant BK as booking
+    participant R as Redis
+    participant DB as booking_db
+
+    par Cùng lúc
+        A->>BK: POST /hold (seat 12A)
+    and
+        B->>BK: POST /hold (seat 12A)
+    end
+
+    BK->>R: SETNX seat:VN201:12A (A)
+    R-->>BK: OK ✅
+    BK->>R: SETNX seat:VN201:12A (B)
+    R-->>BK: NIL ❌
+
+    BK->>DB: INSERT booking (A, HELD)
+    Note over A: ✅ HELD thành công
+
+    BK-->>B: 409 SEAT_ALREADY_HELD
+    Note over B: ❌ Chọn ghế khác
+
+    Note over R: Sau 10min<br/>nếu A không pay<br/>Redis tự xóa key + job dọn
+  </div>
+</section>
+
+<!-- 4. Saga -->
+<section id="saga">
+  <h2>4. Saga Choreography — Payment Fail Compensation</h2>
+  <div class="desc">Khi payment fail, booking tự rollback (release ghế) qua event.</div>
+  <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as 👤 User
+    participant BK as booking
+    participant R as Redis
+    participant PM as payment
+    participant K as Kafka
+    participant NT as notification
+
+    U->>BK: POST /hold seat 12A
+    BK->>R: SETNX → OK
+    BK->>BK: booking B001 = HELD
+    BK->>K: publish booking.held
+    BK-->>U: bookingId B001
+
+    U->>PM: POST /payments B001
+    PM->>PM: gateway → ❌ DECLINED
+    PM->>PM: payment.status = FAILED
+    PM->>K: publish payment.failed
+
+    rect rgb(254, 226, 226)
+        Note over K,BK: 🔄 COMPENSATION
+        K->>BK: consume payment.failed
+        BK->>BK: UPDATE booking = CANCELLED
+        BK->>R: DEL seat lock
+        BK->>K: publish booking.cancelled
+    end
+
+    K->>NT: consume booking.cancelled
+    NT-->>U: 📧 Email báo hủy
+    PM-->>U: 402 Payment Failed
+  </div>
+</section>
+
+<!-- 5. Circuit Breaker -->
+<section id="cb">
+  <h2>5. Circuit Breaker States (Resilience4j)</h2>
+  <div class="desc">Khi flight-search die, circuit OPEN tránh cascade failure.</div>
+  <div class="mermaid">
+stateDiagram-v2
+    [*] --> CLOSED: khởi tạo
+    CLOSED --> OPEN: ≥50% fail<br/>trong 10 request
+    OPEN --> HALF_OPEN: sau 30s cooldown
+    HALF_OPEN --> CLOSED: 3 request liên tiếp OK
+    HALF_OPEN --> OPEN: ≥1 request fail
+    OPEN --> OPEN: fail fast<br/>(không gọi callee)
+
+    note right of CLOSED
+        ✅ Bình thường
+        cho mọi request đi qua
+    end note
+
+    note right of OPEN
+        🔴 Service đang chết
+        Fail fast → fallback response
+    end note
+
+    note left of HALF_OPEN
+        🟡 Đang test thử
+        cho 1 vài request
+    end note
+  </div>
+</section>
+
+<!-- 6. State Machine -->
+<section id="state">
+  <h2>6. Booking State Machine</h2>
+  <div class="desc">Lifecycle của 1 booking — từ HELD đến CONFIRMED/CANCELLED/EXPIRED/REFUNDED.</div>
+  <div class="mermaid">
+stateDiagram-v2
+    [*] --> HELD: POST /hold<br/>+ Redis lock<br/>+ TTL 10min
+
+    HELD --> CONFIRMED: PaymentCompleted<br/>event
+    HELD --> CANCELLED: PaymentFailed<br/>event (compensation)
+    HELD --> EXPIRED: TTL hết<br/>scheduled job
+
+    CONFIRMED --> REFUNDED: user request<br/>refund
+
+    CANCELLED --> [*]
+    EXPIRED --> [*]
+    CONFIRMED --> [*]
+    REFUNDED --> [*]
+
+    note right of HELD
+        Seat lock active
+        Chờ payment ≤ 10min
+    end note
+
+    note right of CONFIRMED
+        Email đã gửi
+        Vé đã issue
+    end note
+  </div>
+</section>
+
+<!-- 7. ERD flight -->
+<section id="erd-flight">
+  <h2>7. ERD — flight_db</h2>
+  <div class="desc">Schema của flight-search-service.</div>
+  <div class="mermaid">
+erDiagram
+    AIRPORT ||--o{ ROUTE : "from"
+    AIRPORT ||--o{ ROUTE : "to"
+    AIRLINE ||--o{ FLIGHT : operates
+    ROUTE ||--o{ FLIGHT : has
+    FLIGHT ||--|| SEAT_INVENTORY : tracks
+    FLIGHT ||--o{ FLIGHT_SEAT : "has seats"
+
+    AIRPORT {
+        varchar iata_code PK
+        varchar name
+        varchar city
+        varchar country
+    }
+    AIRLINE {
+        varchar code PK
+        varchar name
+    }
+    ROUTE {
+        bigint id PK
+        varchar from_airport FK
+        varchar to_airport FK
+        int distance_km
+    }
+    FLIGHT {
+        bigint id PK
+        varchar flight_no UK
+        bigint route_id FK
+        varchar airline_code FK
+        timestamp departure_time
+        timestamp arrival_time
+        int total_seats
+        decimal base_price
+        varchar status
+        bigint version "@Version"
+    }
+    SEAT_INVENTORY {
+        bigint flight_id PK
+        int total
+        int available
+        int held
+        int booked
+        bigint version "@Version"
+    }
+    FLIGHT_SEAT {
+        bigint flight_id PK
+        varchar seat_no PK
+        varchar class
+        varchar status
+        decimal price_factor
+    }
+  </div>
+</section>
+
+<!-- 8. ERD user -->
+<section id="erd-user">
+  <h2>8. ERD — user_db</h2>
+  <div class="desc">Schema của user-service.</div>
+  <div class="mermaid">
+erDiagram
+    USERS ||--|| PASSENGER : "1-1 profile"
+    USERS ||--o{ USER_ROLE : has
+
+    USERS {
+        bigint id PK
+        varchar email UK
+        varchar password_hash
+        varchar status
+        timestamp created_at
+        timestamp last_login_at
+    }
+    PASSENGER {
+        bigint user_id PK
+        varchar full_name
+        varchar phone
+        date date_of_birth
+        varchar gender
+        varchar passport_no
+        varchar nationality
+    }
+    USER_ROLE {
+        bigint user_id PK
+        varchar role PK
+    }
+  </div>
+</section>
+
+<!-- 9. ERD booking -->
+<section id="erd-booking">
+  <h2>9. ERD — booking_db ⭐</h2>
+  <div class="desc">Schema cốt lõi với Outbox pattern.</div>
+  <div class="mermaid">
+erDiagram
+    BOOKING ||--|{ BOOKING_ITEM : contains
+    BOOKING ||--o{ OUTBOX_EVENT : emits
+
+    BOOKING {
+        bigint id PK
+        varchar booking_code UK
+        bigint user_id "logical FK"
+        bigint flight_id "logical FK"
+        varchar status
+        decimal total_amount
+        varchar currency
+        timestamp held_at
+        timestamp expires_at
+        timestamp confirmed_at
+        timestamp cancelled_at
+        varchar payment_id
+        bigint version "@Version"
+    }
+    BOOKING_ITEM {
+        bigint id PK
+        bigint booking_id FK
+        varchar seat_no
+        varchar passenger_name
+        varchar passenger_passport
+        decimal price
+    }
+    OUTBOX_EVENT {
+        bigint id PK
+        varchar aggregate_type
+        bigint aggregate_id
+        varchar event_type
+        jsonb payload
+        varchar status
+        int retry_count
+        timestamp sent_at
+    }
+  </div>
+</section>
+
+<!-- 10. ERD payment -->
+<section id="erd-payment">
+  <h2>10. ERD — payment_db</h2>
+  <div class="desc">Schema của payment-service với Transaction log và Refund.</div>
+  <div class="mermaid">
+erDiagram
+    PAYMENT ||--o{ TRANSACTION : "has retries"
+    PAYMENT ||--o{ REFUND : "may have"
+
+    PAYMENT {
+        bigint id PK
+        varchar payment_code UK
+        bigint booking_id "logical FK"
+        bigint user_id "logical FK"
+        decimal amount
+        varchar currency
+        varchar method
+        varchar status
+        varchar idempotency_key UK
+        timestamp completed_at
+    }
+    TRANSACTION {
+        bigint id PK
+        bigint payment_id FK
+        varchar gateway_txn_id
+        text gateway_response
+        varchar status
+    }
+    REFUND {
+        bigint id PK
+        bigint payment_id FK
+        decimal amount
+        varchar reason
+        varchar status
+    }
+  </div>
+</section>
+
+<!-- 11. ERD notify -->
+<section id="erd-notify">
+  <h2>11. ERD — notify_db</h2>
+  <div class="desc">Schema notification với template đa ngôn ngữ + đa channel.</div>
+  <div class="mermaid">
+erDiagram
+    NOTIFICATION_TEMPLATE ||--o{ NOTIFICATION : "rendered from"
+
+    NOTIFICATION_TEMPLATE {
+        varchar code PK
+        varchar locale PK
+        varchar channel PK
+        varchar subject
+        text body
+    }
+    NOTIFICATION {
+        bigint id PK
+        varchar template_code FK
+        bigint user_id
+        varchar channel
+        varchar recipient
+        jsonb variables
+        varchar status
+        int retry_count
+        text error_message
+        timestamp sent_at
+    }
+    FLIGHT_REMINDER_LOG {
+        bigint booking_id PK
+        bigint flight_id
+        timestamp sent_at
+    }
+  </div>
+</section>
+
+<!-- 12. Docker -->
+<section id="docker">
+  <h2>12. Docker Compose Topology</h2>
+  <div class="desc">Cấu trúc triển khai local cho dev.</div>
+  <div class="mermaid">
+flowchart TB
+    subgraph host["🖥️ Docker Host"]
+        subgraph net["docker network: airline-net"]
+            G[api-gateway :8080]
+            S1[flight-search :8081]
+            S2[booking :8082]
+            S3[user :8083]
+            S4[payment :8084]
+            S5[notification :8085]
+
+            subgraph infra["Infrastructure"]
+                PG[(postgres :5432<br/>5 databases)]
+                RD[(redis :6379)]
+                KF{{kafka :9092}}
+                RB{{rabbitmq :5672}}
+                ZP[zipkin :9411]
+                GR[grafana :3000]
+                MH[mailhog :8025]
+            end
+        end
+    end
+
+    Browser([👤 Browser :8080])
+    Browser --> G
+
+    G --> S1 & S2 & S3 & S4 & S5
+    S1 & S2 & S3 & S4 & S5 --> PG
+    S2 --> RD
+    S2 & S4 & S5 --> KF
+    S5 --> RB
+    S5 --> MH
+    S1 & S2 & S3 & S4 & S5 -.tracing.-> ZP
+
+    classDef svc fill:#dbeafe,stroke:#2563eb
+    classDef infra fill:#fef3c7,stroke:#d97706
+    class G,S1,S2,S3,S4,S5 svc
+    class PG,RD,KF,RB,ZP,GR,MH infra
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Airline Booking System · MSS301 · 2026 · Generated for FPT University<br>
+  Mở file này bằng Chrome/Edge/Firefox — diagrams render tự động bằng Mermaid v10.
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true },
+    er: { useMaxWidth: true },
+    sequence: { useMaxWidth: true, showSequenceNumbers: false }
+  });
+</script>
+
+</body>
+</html>

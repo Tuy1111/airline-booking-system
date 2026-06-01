@@ -1,12 +1,22 @@
 # Local Infra Stack
 
 ```bash
-# Start everything
-docker compose -f infra/docker/docker-compose.yml up -d
+# 0. Tạo env cho infra stack (1 lần)
+cp infra/docker/.env.example infra/docker/.env
+
+# Start everything (chạy TỪ thư mục infra/docker để compose tự đọc ./.env)
+cd infra/docker && docker compose up -d
+
+# …hoặc chạy từ root với --env-file
+docker compose --env-file infra/docker/.env -f infra/docker/docker-compose.yml up -d
 
 # Tail logs
 docker compose -f infra/docker/docker-compose.yml logs -f
 ```
+
+> **Env per service**: mỗi service tự giữ `.env` riêng trong thư mục của nó
+> (`services/payment-service/.env`, `services/notification-service/.env`).
+> Spring đọc qua `spring-dotenv` khi khởi động. `cp .env.example .env` trước khi chạy.
 
 ## Endpoints
 

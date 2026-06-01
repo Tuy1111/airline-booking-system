@@ -16,15 +16,15 @@ services:
     image: postgres:16
     container_name: abs-postgres
     environment:
-      POSTGRES_USER: abs
-      POSTGRES_PASSWORD: abs123
+      POSTGRES_USER: ${DB_USER:-abs}
+      POSTGRES_PASSWORD: ${DB_PASS:-abs123}
       POSTGRES_DB: postgres
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U abs"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-abs}"]
       interval: 5s
       retries: 10
 

@@ -38,11 +38,29 @@ public class Payment {
     private PaymentMethod method;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private PaymentGateway gateway;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PaymentStatus status;
 
     @Column(name = "idempotency_key", nullable = false, unique = true, length = 100)
     private String idempotencyKey;
+
+    /** Mã ngắn user phải nhập vào nội dung CK để hệ thống đối soát. UNIQUE per active payment. */
+    @Column(name = "transfer_code", length = 30)
+    private String transferCode;
+
+    /** Mã giao dịch do SePay/ngân hàng trả về — dùng cho idempotency. */
+    @Column(name = "reference_code", length = 100)
+    private String referenceCode;
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
+    @Column(name = "failure_reason", length = 500)
+    private String failureReason;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;

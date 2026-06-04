@@ -11,8 +11,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
-@RequestMapping("/api/v1/notifications")
+@RequestMapping("/notifications")
 @RequiredArgsConstructor
 public class NotificationController {
 
@@ -31,11 +33,10 @@ public class NotificationController {
     }
 
     @GetMapping("/by-user/{userId}")
-    public Page<Notification> byUser(@PathVariable Long userId,
+    public List<Notification> byUser(@PathVariable Long userId,
                                      @RequestParam(defaultValue = "0") int page,
                                      @RequestParam(defaultValue = "20") int size) {
-        return repo.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size))
-                .map(n -> n);
+        return repo.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size));
     }
 
     @PostMapping("/test-send")

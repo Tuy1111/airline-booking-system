@@ -1,7 +1,7 @@
 package com.abs.booking.infrastructure.persistence;
 
-import com.abs.booking.domain.OutboxEvent;
-import com.abs.booking.domain.OutboxStatus;
+import com.abs.booking.infrastructure.persistence.outbox.OutboxEvent;
+import com.abs.booking.infrastructure.persistence.outbox.OutboxStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 

@@ -1,7 +1,7 @@
 package com.abs.payment.infrastructure.persistence;
 
-import com.abs.payment.domain.OutboxEvent;
-import com.abs.payment.domain.OutboxStatus;
+import com.abs.payment.infrastructure.persistence.outbox.OutboxEvent;
+import com.abs.payment.infrastructure.persistence.outbox.OutboxStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

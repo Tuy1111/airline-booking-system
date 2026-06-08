@@ -1,7 +1,7 @@
 package com.abs.payment.infrastructure.messaging;
 
-import com.abs.payment.domain.OutboxEvent;
-import com.abs.payment.domain.OutboxStatus;
+import com.abs.payment.infrastructure.persistence.outbox.OutboxEvent;
+import com.abs.payment.infrastructure.persistence.outbox.OutboxStatus;
 import com.abs.payment.infrastructure.persistence.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

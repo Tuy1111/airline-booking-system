@@ -4,9 +4,13 @@ import com.abs.payment.application.dto.CreatePaymentRequest;
 import com.abs.payment.application.dto.PaymentCompletedEvent;
 import com.abs.payment.application.dto.PaymentFailedEvent;
 import com.abs.payment.application.dto.SePayWebhookPayload;
-import com.abs.payment.domain.*;
-import com.abs.payment.infrastructure.persistence.PaymentRepository;
-import com.abs.payment.infrastructure.persistence.TransactionRepository;
+import com.abs.payment.domain.aggregate.PaymentAggregate;
+import com.abs.payment.domain.aggregate.TransactionAggregate;
+import com.abs.payment.domain.repository.PaymentRepository;
+import com.abs.payment.domain.repository.TransactionRepository;
+import com.abs.payment.domain.vo.PaymentGateway;
+import com.abs.payment.domain.vo.PaymentMethod;
+import com.abs.payment.domain.vo.PaymentStatus;
 import com.abs.payment.infrastructure.sepay.SePayProperties;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -41,7 +45,7 @@ public class PaymentService {
      * gọi lại với cùng key trả về payment đã tạo.
      */
     @Transactional
-    public Payment createSePayPayment(CreatePaymentRequest req) {
+    public PaymentAggregate createSePayPayment(CreatePaymentRequest req) {
         // Idempotency
         var existing = paymentRepo.findByIdempotencyKey(req.idempotencyKey());
         if (existing.isPresent()) return existing.get();
@@ -49,7 +53,7 @@ public class PaymentService {
         String paymentCode  = "PAY" + RandomStringUtils.randomAlphanumeric(10).toUpperCase();
         String transferCode = qrService.newTransferCode(req.bookingId());
 
-        Payment p = Payment.builder()
+        PaymentAggregate p = PaymentAggregate.builder()
                 .paymentCode(paymentCode)
                 .bookingId(req.bookingId())
                 .userId(req.userId())
@@ -70,7 +74,7 @@ public class PaymentService {
         return p;
     }
 
-    public String buildQrUrl(Payment p) {
+    public String buildQrUrl(PaymentAggregate p) {
         return qrService.buildQrUrl(p.getTransferCode(), p.getAmount());
     }
 
@@ -94,7 +98,7 @@ public class PaymentService {
             return false;
         }
 
-        Payment payment = paymentRepo.findByTransferCode(code).orElse(null);
+        PaymentAggregate payment = paymentRepo.findByTransferCode(code).orElse(null);
         if (payment == null) {
             log.warn("SePay webhook: unknown transferCode={}", code);
             counter("webhook.unknown_code").increment();
@@ -124,13 +128,11 @@ public class PaymentService {
         }
 
         // OK → mark SUCCESS
-        payment.setStatus(PaymentStatus.SUCCESS);
-        payment.setReferenceCode(p.referenceCode());
-        payment.setCompletedAt(LocalDateTime.now());
-        paymentRepo.save(payment);
+        payment.markSuccessful(p.referenceCode(), LocalDateTime.now());
+        payment = paymentRepo.save(payment);
 
-        Transaction txn = Transaction.builder()
-                .payment(payment)
+        TransactionAggregate txn = TransactionAggregate.builder()
+                .paymentId(payment.getId())
                 .gatewayTxnId(p.referenceCode())
                 .gatewayResponse(truncate(p.toString(), 4000))
                 .status("SUCCESS")
@@ -151,15 +153,12 @@ public class PaymentService {
         return true;
     }
 
-    private boolean markFailed(Payment payment, SePayWebhookPayload p, String reason) {
-        payment.setStatus(PaymentStatus.FAILED);
-        payment.setFailureReason(reason);
-        payment.setReferenceCode(p.referenceCode());
-        payment.setCompletedAt(LocalDateTime.now());
-        paymentRepo.save(payment);
+    private boolean markFailed(PaymentAggregate payment, SePayWebhookPayload p, String reason) {
+        payment.markFailed(reason, p.referenceCode(), LocalDateTime.now());
+        payment = paymentRepo.save(payment);
 
-        txnRepo.save(Transaction.builder()
-                .payment(payment)
+        txnRepo.save(TransactionAggregate.builder()
+                .paymentId(payment.getId())
                 .gatewayTxnId(p.referenceCode())
                 .gatewayResponse(truncate(p.toString(), 4000))
                 .status("FAILED")

@@ -1,7 +1,7 @@
 package com.abs.payment.application.dto;
 
-import com.abs.payment.domain.Payment;
-import com.abs.payment.domain.PaymentStatus;
+import com.abs.payment.domain.aggregate.PaymentAggregate;
+import com.abs.payment.domain.vo.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,7 +18,7 @@ public record PaymentResponse(
         String qrUrl,
         LocalDateTime expiresAt
 ) {
-    public static PaymentResponse of(Payment p, String qrUrl) {
+    public static PaymentResponse of(PaymentAggregate p, String qrUrl) {
         return new PaymentResponse(
                 p.getId(), p.getPaymentCode(), p.getBookingId(),
                 p.getAmount(), p.getCurrency(), p.getStatus(),

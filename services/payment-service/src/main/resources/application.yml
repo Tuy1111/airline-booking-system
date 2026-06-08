@@ -6,8 +6,8 @@ spring:
     name: payment-service
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/payment_db
-    username: ${DB_USER:abs}
-    password: ${DB_PASS:abs123}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASS:admin123}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -36,10 +36,10 @@ spring:
 
 app:
   sepay:
-    api-key: ${SEPAY_API_KEY:changeme}
-    bank-account: ${SEPAY_BANK_ACC:0123456789}
+    api-key: ${SEPAY_API_KEY:2WJ8QVZG2XB1LH4KD03BPQWYPD4KUFOHIBMNA97YE1TRF5RINSLESUWZCGLXCGLN}
+    bank-account: ${SEPAY_BANK_ACC:2511112005}
     bank-code: ${SEPAY_BANK_CODE:MBBank}
-    account-holder: ${SEPAY_ACC_HOLDER:AIRLINE BOOKING JSC}
+    account-holder: ${SEPAY_ACC_HOLDER:Ngô Giản Tuy}
     qr-base: ${SEPAY_QR_BASE:https://qr.sepay.vn/img}
     qr-template: ${SEPAY_QR_TEMPLATE:compact}
     expires-minutes: ${SEPAY_EXPIRES_MIN:15}
@@ -65,6 +65,7 @@ management:
   tracing:
     sampling:
       probability: 1.0
+    enabled: ${TRACING_ENABLED:false}        # bật = true khi đã chạy Zipkin (Docker)
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

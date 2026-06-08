@@ -2,13 +2,13 @@ package com.abs.notification.application;
 
 import com.abs.notification.application.dto.SendEmailCommand;
 import com.abs.notification.application.dto.SendSmsCommand;
-import com.abs.notification.domain.Channel;
-import com.abs.notification.domain.Notification;
-import com.abs.notification.domain.NotificationStatus;
-import com.abs.notification.domain.NotificationTemplate;
+import com.abs.notification.domain.aggregate.NotificationAggregate;
+import com.abs.notification.domain.aggregate.NotificationTemplateAggregate;
+import com.abs.notification.domain.repository.NotificationRepository;
+import com.abs.notification.domain.repository.NotificationTemplateRepository;
+import com.abs.notification.domain.vo.Channel;
+import com.abs.notification.domain.vo.NotificationStatus;
 import com.abs.notification.infrastructure.email.EmailSender;
-import com.abs.notification.infrastructure.persistence.NotificationRepository;
-import com.abs.notification.infrastructure.persistence.NotificationTemplateRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -31,9 +31,9 @@ public class NotificationService {
     private final MeterRegistry meterRegistry;
 
     @Transactional
-    public Notification sendEmail(SendEmailCommand cmd) {
+    public NotificationAggregate sendEmail(SendEmailCommand cmd) {
         String locale = cmd.locale() == null ? "vi" : cmd.locale();
-        NotificationTemplate template = templateRepo
+        NotificationTemplateAggregate template = templateRepo
                 .findByCodeAndLocaleAndChannel(cmd.templateCode(), locale, Channel.EMAIL)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Template not found: " + cmd.templateCode() + "/" + locale + "/EMAIL"));
@@ -42,7 +42,7 @@ public class NotificationService {
         String subject = renderer.render(template.getSubject(), vars);
         String body    = renderer.render(template.getBody(), vars);
 
-        Notification record = Notification.builder()
+        NotificationAggregate record = NotificationAggregate.builder()
                 .templateCode(cmd.templateCode())
                 .userId(cmd.userId())
                 .channel(Channel.EMAIL)
@@ -55,13 +55,13 @@ public class NotificationService {
 
         try {
             emailSender.send(cmd.recipient(), subject, body);
-            record.setStatus(NotificationStatus.SENT);
-            record.setSentAt(LocalDateTime.now());
+            record.markSent(LocalDateTime.now());
+            record = notificationRepo.save(record);
             counter("sent", "email").increment();
             log.info("Email sent: tmpl={} to={}", cmd.templateCode(), cmd.recipient());
         } catch (Exception ex) {
-            record.setStatus(NotificationStatus.FAILED);
-            record.setErrorMessage(ex.getMessage());
+            record.markFailed(ex.getMessage());
+            notificationRepo.save(record);
             counter("failed", "email").increment();
             log.error("Email send failed: tmpl={} to={} err={}",
                     cmd.templateCode(), cmd.recipient(), ex.getMessage());
@@ -71,9 +71,9 @@ public class NotificationService {
     }
 
     @Transactional
-    public Notification sendSms(SendSmsCommand cmd) {
+    public NotificationAggregate sendSms(SendSmsCommand cmd) {
         String locale = cmd.locale() == null ? "vi" : cmd.locale();
-        NotificationTemplate template = templateRepo
+        NotificationTemplateAggregate template = templateRepo
                 .findByCodeAndLocaleAndChannel(cmd.templateCode(), locale, Channel.SMS)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "SMS template not found: " + cmd.templateCode()));
@@ -81,7 +81,7 @@ public class NotificationService {
         Map<String, Object> vars = cmd.variables() == null ? Map.of() : cmd.variables();
         String body = renderer.render(template.getBody(), vars);
 
-        Notification record = Notification.builder()
+        NotificationAggregate record = NotificationAggregate.builder()
                 .templateCode(cmd.templateCode())
                 .userId(cmd.userId())
                 .channel(Channel.SMS)
@@ -94,8 +94,8 @@ public class NotificationService {
 
         // Dev: SMS is stubbed — log only. Replace with Twilio adapter in prod.
         log.info("[SMS-STUB] to={} body={}", cmd.recipient(), body);
-        record.setStatus(NotificationStatus.SENT);
-        record.setSentAt(LocalDateTime.now());
+        record.markSent(LocalDateTime.now());
+        record = notificationRepo.save(record);
         counter("sent", "sms").increment();
         return record;
     }

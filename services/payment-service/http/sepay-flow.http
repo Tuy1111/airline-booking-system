@@ -1,0 +1,98 @@
+### ──────────────────────────────────────────────────────────
+### SePay payment flow — IntelliJ HTTP Client
+### Bấm nút ▶ (Run) bên trái từng request, theo THỨ TỰ 1 → 4.
+### apiKey phải KHỚP với SEPAY_API_KEY trong .env
+### ──────────────────────────────────────────────────────────
+@baseUrl = http://localhost:8084
+@apiKey  = 2WJ8QVZG2XB1LH4KD03BPQWYPD4KUFOHIBMNA97YE1TRF5RINSLESUWZCGLXCGLN
+
+### 1. Ping — kiểm tra service sống
+GET {{baseUrl}}/api/v1/payments/ping
+
+### 2. Tạo payment (PENDING) — server sinh transferCode + qrUrl
+# > {% ... %} : bắt transferCode + id từ response, lưu vào biến global
+POST {{baseUrl}}/api/v1/payments
+Content-Type: application/json
+
+{
+  "bookingId": 42,
+  "userId": 7,
+  "amount": 2500000,
+  "idempotencyKey": "demo-key-001",
+  "method": "BANK_TRANSFER"
+}
+
+> {%
+    client.global.set("transferCode", response.body.transferCode);
+    client.global.set("paymentId",   response.body.id);
+    client.log("transferCode = " + response.body.transferCode);
+    client.log("qrUrl        = " + response.body.qrUrl);
+%}
+
+### 3. Giả lập webhook SePay báo "tiền đã vào" (dùng transferCode vừa bắt)
+POST {{baseUrl}}/api/v1/payments/webhooks/sepay
+Authorization: Apikey {{apiKey}}
+Content-Type: application/json
+
+{
+  "id": 9216,
+  "gateway": "MBBank",
+  "transactionDate": "2026-06-01 17:00:00",
+  "accountNumber": "2511112005",
+  "code": "{{transferCode}}",
+  "content": "CT tu 0987654321 {{transferCode}} chuyen tien",
+  "transferType": "in",
+  "transferAmount": 2500000,
+  "referenceCode": "MBVCB.{{$randomInt}}"
+}
+
+> {%
+    client.test("webhook 200 + success", function() {
+        client.assert(response.status === 200, "status != 200");
+        client.assert(response.body.success === true, "success != true");
+    });
+%}
+
+### 4. Kiểm tra payment đã chuyển SUCCESS
+GET {{baseUrl}}/api/v1/payments/{{paymentId}}
+
+> {%
+    client.test("payment is SUCCESS", function() {
+        client.assert(response.body.status === "SUCCESS",
+            "status = " + response.body.status + " (chua SUCCESS)");
+    });
+%}
+
+### ── CÁC CA LỖI (chạy lại để test) ──
+
+### 5a. Sai số tiền → payment FAILED (tạo payment mới trước: đổi idempotencyKey ở #2)
+POST {{baseUrl}}/api/v1/payments/webhooks/sepay
+Authorization: Apikey {{apiKey}}
+Content-Type: application/json
+
+{
+  "gateway": "MBBank", "accountNumber": "2511112005",
+  "code": "{{transferCode}}", "content": "CK {{transferCode}}",
+  "transferType": "in", "transferAmount": 9999,
+  "referenceCode": "MBVCB.WRONG{{$randomInt}}"
+}
+
+### 5b. Sai API key → 401
+POST {{baseUrl}}/api/v1/payments/webhooks/sepay
+Authorization: Apikey sai-key-hoan-toan
+Content-Type: application/json
+
+{
+  "code": "{{transferCode}}", "transferType": "in",
+  "transferAmount": 2500000, "referenceCode": "X1"
+}
+
+### 5c. transferCode không tồn tại → ignored (success:true, applied:false)
+POST {{baseUrl}}/api/v1/payments/webhooks/sepay
+Authorization: Apikey {{apiKey}}
+Content-Type: application/json
+
+{
+  "code": "ABS999KHONGCO", "transferType": "in",
+  "transferAmount": 2500000, "referenceCode": "Y1"
+}

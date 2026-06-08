@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/notify_db
     username: ${DB_USER:abs}
-    password: ${DB_PASS:abs123}
+    password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:

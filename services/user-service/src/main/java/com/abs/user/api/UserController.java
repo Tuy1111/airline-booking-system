@@ -1,7 +1,7 @@
 package com.abs.user.api;
 
-import com.abs.user.domain.User;
-import com.abs.user.infrastructure.persistence.UserRepository;
+import com.abs.user.domain.aggregate.UserAggregate;
+import com.abs.user.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,7 +21,7 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long id) {
-        User user = userRepository.findById(id).orElse(null);
+        UserAggregate user = userRepository.findById(id).orElse(null);
         Map<String, Object> response = new HashMap<>();
 
         if (user != null) {

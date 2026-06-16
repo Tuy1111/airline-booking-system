@@ -6,6 +6,23 @@ spring:
     name: api-gateway
   main:
     web-application-type: reactive
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+          routes:
+            - id: booking-service
+              uri: lb://booking-service
+              predicates:
+                - Path=/api/v1/bookings, /api/v1/bookings/**
+            - id: flight-search-service
+              uri: lb://flight-search-service
+              predicates:
+                - Path=/api/v1/flights, /api/v1/flights/**
 
 management:
   endpoints:
@@ -19,11 +36,16 @@ management:
     tags:
       application: ${spring.application.name}
   tracing:
-    sampling:
-      probability: 1.0
-  zipkin:
-    tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+    enabled: false
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+    instance-id: ${spring.application.name}:${server.port}
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
 
 logging:
   pattern:

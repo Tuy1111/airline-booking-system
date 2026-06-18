@@ -1,7 +1,7 @@
 package com.abs.booking.infrastructure.messaging;
 
-import com.abs.booking.domain.OutboxEvent;
-import com.abs.booking.domain.OutboxStatus;
+import com.abs.booking.infrastructure.persistence.outbox.OutboxEvent;
+import com.abs.booking.infrastructure.persistence.outbox.OutboxStatus;
 import com.abs.booking.infrastructure.persistence.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +34,7 @@ public class OutboxRelay {
     @Scheduled(fixedDelayString = "${app.outbox.poll-interval-ms:2000}")
     @Transactional
     public void relay() {
-        List<OutboxEvent> batch = outboxRepo.lockPending(
+        List<OutboxEvent> batch = outboxRepo.findByStatusOrderByCreatedAtAsc(
                 OutboxStatus.PENDING, PageRequest.of(0, batchSize));
         if (batch.isEmpty()) return;
 

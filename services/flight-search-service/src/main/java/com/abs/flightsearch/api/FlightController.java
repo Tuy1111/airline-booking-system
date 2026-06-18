@@ -2,8 +2,8 @@ package com.abs.flightsearch.api;
 
 import com.abs.flightsearch.application.FlightSearchService;
 import com.abs.flightsearch.application.dto.*;
-import com.abs.flightsearch.domain.Airline;
-import com.abs.flightsearch.domain.Airport;
+import com.abs.flightsearch.domain.aggregate.AirlineAggregate;
+import com.abs.flightsearch.domain.aggregate.AirportAggregate;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -54,14 +54,14 @@ public class FlightController {
     }
 
     @GetMapping("/airports")
-    public ResponseEntity<List<Airport>> getAllAirports() {
-        List<Airport> response = flightSearchService.getAllAirports();
+    public ResponseEntity<List<AirportAggregate>> getAllAirports() {
+        List<AirportAggregate> response = flightSearchService.getAllAirports();
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/airlines")
-    public ResponseEntity<List<Airline>> getAllAirlines() {
-        List<Airline> response = flightSearchService.getAllAirlines();
+    public ResponseEntity<List<AirlineAggregate>> getAllAirlines() {
+        List<AirlineAggregate> response = flightSearchService.getAllAirlines();
         return ResponseEntity.ok(response);
     }
 }

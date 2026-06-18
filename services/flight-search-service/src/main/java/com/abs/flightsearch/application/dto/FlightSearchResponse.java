@@ -1,8 +1,8 @@
 package com.abs.flightsearch.application.dto;
 
-import com.abs.flightsearch.domain.Flight;
-import com.abs.flightsearch.domain.FlightStatus;
-import com.abs.flightsearch.domain.SeatInventory;
+import com.abs.flightsearch.domain.aggregate.FlightAggregate;
+import com.abs.flightsearch.domain.vo.FlightStatus;
+import com.abs.flightsearch.domain.aggregate.SeatInventoryAggregate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -25,7 +25,7 @@ public record FlightSearchResponse(
         FlightStatus status,
         int availableSeats
 ) {
-    public static FlightSearchResponse of(Flight f, SeatInventory inv) {
+    public static FlightSearchResponse of(FlightAggregate f, SeatInventoryAggregate inv) {
         BigDecimal base = f.getBasePrice();
         BigDecimal current = base;
 

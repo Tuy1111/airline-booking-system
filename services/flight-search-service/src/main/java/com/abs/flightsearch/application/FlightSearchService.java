@@ -1,8 +1,18 @@
 package com.abs.flightsearch.application;
 
 import com.abs.flightsearch.application.dto.*;
-import com.abs.flightsearch.domain.*;
-import com.abs.flightsearch.infrastructure.persistence.*;
+import com.abs.flightsearch.domain.aggregate.AirlineAggregate;
+import com.abs.flightsearch.domain.aggregate.AirportAggregate;
+import com.abs.flightsearch.domain.aggregate.FlightAggregate;
+import com.abs.flightsearch.domain.aggregate.FlightSeatAggregate;
+import com.abs.flightsearch.domain.aggregate.SeatInventoryAggregate;
+import com.abs.flightsearch.domain.vo.FlightSeatId;
+import com.abs.flightsearch.domain.vo.FlightStatus;
+import com.abs.flightsearch.domain.repository.AirlineRepository;
+import com.abs.flightsearch.domain.repository.AirportRepository;
+import com.abs.flightsearch.domain.repository.FlightRepository;
+import com.abs.flightsearch.domain.repository.FlightSeatRepository;
+import com.abs.flightsearch.domain.repository.SeatInventoryRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +48,7 @@ public class FlightSearchService {
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = date.atTime(23, 59, 59);
 
-        List<Flight> flights = flightRepository.searchFlights(from, to, start, end, FlightStatus.SCHEDULED);
+        List<FlightAggregate> flights = flightRepository.searchFlights(from, to, start, end, FlightStatus.SCHEDULED);
 
         Counter.builder("flight.search")
                 .description("Number of flight searches")
@@ -47,7 +57,7 @@ public class FlightSearchService {
 
         return flights.stream()
                 .map(flight -> {
-                    SeatInventory inv = seatInventoryRepository.findById(flight.getId()).orElse(null);
+                    SeatInventoryAggregate inv = seatInventoryRepository.findById(flight.getId()).orElse(null);
                     return FlightSearchResponse.of(flight, inv);
                 })
                 .filter(res -> res.availableSeats() >= passengers)
@@ -56,9 +66,9 @@ public class FlightSearchService {
 
     @Transactional(readOnly = true)
     public FlightDetailResponse getFlightDetail(Long id) {
-        Flight flight = flightRepository.findById(id)
+        FlightAggregate flight = flightRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Flight not found with id: " + id));
-        SeatInventory inv = seatInventoryRepository.findById(id).orElse(null);
+        SeatInventoryAggregate inv = seatInventoryRepository.findById(id).orElse(null);
         return FlightDetailResponse.of(flight, inv);
     }
 
@@ -67,7 +77,7 @@ public class FlightSearchService {
         if (!flightRepository.existsById(flightId)) {
             throw new RuntimeException("Flight not found with id: " + flightId);
         }
-        List<FlightSeat> seats = flightSeatRepository.findByFlightId(flightId);
+        List<FlightSeatAggregate> seats = flightSeatRepository.findByFlightId(flightId);
         return seats.stream()
                 .map(SeatMapResponse::of)
                 .toList();
@@ -75,25 +85,25 @@ public class FlightSearchService {
 
     @Transactional(readOnly = true)
     public SeatInfoResponse checkSeat(Long flightId, String seatNo) {
-        Flight flight = flightRepository.findById(flightId)
+        FlightAggregate flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new RuntimeException("Flight not found with id: " + flightId));
 
         FlightSeatId seatId = new FlightSeatId(flightId, seatNo);
-        FlightSeat seat = flightSeatRepository.findById(seatId)
+        FlightSeatAggregate seat = flightSeatRepository.findById(seatId)
                 .orElseThrow(() -> new RuntimeException("Seat " + seatNo + " not found on flight " + flightId));
 
-        SeatInventory inv = seatInventoryRepository.findById(flightId).orElse(null);
+        SeatInventoryAggregate inv = seatInventoryRepository.findById(flightId).orElse(null);
 
         return SeatInfoResponse.of(seat, flight, inv);
     }
 
     @Transactional(readOnly = true)
-    public List<Airport> getAllAirports() {
+    public List<AirportAggregate> getAllAirports() {
         return airportRepository.findAll();
     }
 
     @Transactional(readOnly = true)
-    public List<Airline> getAllAirlines() {
+    public List<AirlineAggregate> getAllAirlines() {
         return airlineRepository.findAll();
     }
 }

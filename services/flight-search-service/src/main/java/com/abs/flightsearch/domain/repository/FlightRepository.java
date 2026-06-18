@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface FlightRepository {
     FlightAggregate save(FlightAggregate aggregate);
     Optional<FlightAggregate> findById(Long id);
+    boolean existsById(Long id);
     Optional<FlightAggregate> findByFlightNo(String flightNo);
     List<FlightAggregate> searchFlights(
             String from,

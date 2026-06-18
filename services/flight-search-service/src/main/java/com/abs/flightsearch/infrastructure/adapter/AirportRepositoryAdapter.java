@@ -7,6 +7,7 @@ import com.abs.flightsearch.infrastructure.persistence.mapper.AirportPersistence
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -23,5 +24,17 @@ public class AirportRepositoryAdapter implements AirportRepository {
     @Override
     public Optional<AirportAggregate> findById(String iataCode) {
         return repository.findById(iataCode).map(AirportPersistenceMapper::toAggregate);
+    }
+
+    @Override
+    public boolean existsById(String iataCode) {
+        return repository.existsById(iataCode);
+    }
+
+    @Override
+    public List<AirportAggregate> findAll() {
+        return repository.findAll().stream()
+                .map(AirportPersistenceMapper::toAggregate)
+                .toList();
     }
 }

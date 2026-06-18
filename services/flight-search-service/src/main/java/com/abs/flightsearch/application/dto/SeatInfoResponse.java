@@ -1,8 +1,8 @@
 package com.abs.flightsearch.application.dto;
 
-import com.abs.flightsearch.domain.Flight;
-import com.abs.flightsearch.domain.FlightSeat;
-import com.abs.flightsearch.domain.SeatInventory;
+import com.abs.flightsearch.domain.aggregate.FlightAggregate;
+import com.abs.flightsearch.domain.aggregate.FlightSeatAggregate;
+import com.abs.flightsearch.domain.aggregate.SeatInventoryAggregate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -14,7 +14,7 @@ public record SeatInfoResponse(
         String status,
         BigDecimal price
 ) {
-    public static SeatInfoResponse of(FlightSeat seat, Flight flight, SeatInventory inv) {
+    public static SeatInfoResponse of(FlightSeatAggregate seat, FlightAggregate flight, SeatInventoryAggregate inv) {
         BigDecimal base = flight.getBasePrice();
         BigDecimal factor = seat.getPriceFactor() != null ? seat.getPriceFactor() : BigDecimal.ONE;
         

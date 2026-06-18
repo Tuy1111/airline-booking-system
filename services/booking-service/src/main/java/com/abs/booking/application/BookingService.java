@@ -3,11 +3,10 @@ package com.abs.booking.application;
 import com.abs.booking.application.dto.BookingDetailResponse;
 import com.abs.booking.application.dto.HoldSeatRequest;
 import com.abs.booking.application.dto.HoldSeatResponse;
-import com.abs.booking.domain.Booking;
-import com.abs.booking.domain.BookingItem;
-import com.abs.booking.domain.BookingStatus;
-import com.abs.booking.infrastructure.persistence.BookingItemRepository;
-import com.abs.booking.infrastructure.persistence.BookingRepository;
+import com.abs.booking.domain.aggregate.BookingAggregate;
+import com.abs.booking.domain.aggregate.BookingItem;
+import com.abs.booking.domain.vo.BookingStatus;
+import com.abs.booking.domain.repository.BookingRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +33,6 @@ import java.util.UUID;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
-    private final BookingItemRepository bookingItemRepository;
     private final BookingEventPublisher eventPublisher;
     private final RestTemplate restTemplate;
     private final StringRedisTemplate stringRedisTemplate;
@@ -46,14 +44,12 @@ public class BookingService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     public BookingService(BookingRepository bookingRepository,
-                          BookingItemRepository bookingItemRepository,
                           BookingEventPublisher eventPublisher,
                           RestTemplate restTemplate,
                           StringRedisTemplate stringRedisTemplate,
                           MeterRegistry meterRegistry,
                           @Value("${booking.hold.ttl-minutes:10}") int holdTtlMinutes) {
         this.bookingRepository = bookingRepository;
-        this.bookingItemRepository = bookingItemRepository;
         this.eventPublisher = eventPublisher;
         this.restTemplate = restTemplate;
         this.stringRedisTemplate = stringRedisTemplate;
@@ -99,7 +95,7 @@ public class BookingService {
 
         // Build and save booking
         LocalDateTime now = LocalDateTime.now();
-        Booking booking = Booking.builder()
+        BookingAggregate booking = BookingAggregate.builder()
                 .bookingCode(bookingCode)
                 .userId(userId)
                 .flightId(req.flightId())
@@ -142,21 +138,21 @@ public class BookingService {
 
     @Transactional(readOnly = true)
     public BookingDetailResponse getBookingById(Long id) {
-        Booking booking = bookingRepository.findById(id)
+        BookingAggregate booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + id));
         return BookingDetailResponse.of(booking);
     }
 
     @Transactional(readOnly = true)
     public Page<BookingDetailResponse> getMyBookings(Long userId, String status, int page, int size) {
-        Page<Booking> bookings = bookingRepository.findByUserIdOrderByCreatedAtDesc(
+        Page<BookingAggregate> bookings = bookingRepository.findByUserId(
                 userId, PageRequest.of(page, size));
         return bookings.map(BookingDetailResponse::of);
     }
 
     @Transactional
     public BookingDetailResponse cancelBooking(Long id, Long userId) {
-        Booking booking = bookingRepository.findById(id)
+        BookingAggregate booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + id));
 
         if (!booking.getUserId().equals(userId)) {
@@ -197,14 +193,14 @@ public class BookingService {
     @Scheduled(fixedDelay = 60000)
     @Transactional
     public void releaseExpiredHolds() {
-        List<Booking> expiredBookings = bookingRepository.findExpiredHolds(
+        List<BookingAggregate> expiredBookings = bookingRepository.findExpiredHolds(
                 BookingStatus.HELD, LocalDateTime.now());
 
         if (expiredBookings.isEmpty()) {
             return;
         }
 
-        for (Booking booking : expiredBookings) {
+        for (BookingAggregate booking : expiredBookings) {
             booking.setStatus(BookingStatus.EXPIRED);
 
             // Release Redis seat locks
@@ -225,7 +221,7 @@ public class BookingService {
 
     @Transactional
     public void confirmBooking(Long bookingId, String paymentId) {
-        Booking booking = bookingRepository.findById(bookingId)
+        BookingAggregate booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
 
         if (booking.getStatus() != BookingStatus.HELD) {
@@ -267,7 +263,7 @@ public class BookingService {
 
     @Transactional
     public void handlePaymentFailed(Long bookingId, String reason) {
-        Booking booking = bookingRepository.findById(bookingId)
+        BookingAggregate booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
 
         if (booking.getStatus() != BookingStatus.HELD && booking.getStatus() != BookingStatus.CONFIRMED) {

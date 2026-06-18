@@ -40,6 +40,12 @@ public class FlightRepositoryAdapter implements FlightRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public boolean existsById(Long id) {
+        return repository.existsById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<FlightAggregate> findByFlightNo(String flightNo) {
         return repository.findByFlightNo(flightNo).map(FlightPersistenceMapper::toAggregate);
     }

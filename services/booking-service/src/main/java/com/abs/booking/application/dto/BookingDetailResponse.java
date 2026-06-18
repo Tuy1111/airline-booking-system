@@ -1,7 +1,7 @@
 package com.abs.booking.application.dto;
 
-import com.abs.booking.domain.Booking;
-import com.abs.booking.domain.BookingStatus;
+import com.abs.booking.domain.aggregate.BookingAggregate;
+import com.abs.booking.domain.vo.BookingStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,7 +33,7 @@ public record BookingDetailResponse(
     ) {
     }
 
-    public static BookingDetailResponse of(Booking b) {
+    public static BookingDetailResponse of(BookingAggregate b) {
         List<BookingItemDto> itemDtos = b.getItems() == null
                 ? List.of()
                 : b.getItems().stream()

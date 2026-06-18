@@ -1,8 +1,8 @@
 package com.abs.booking.application;
 
-import com.abs.booking.domain.Booking;
-import com.abs.booking.domain.OutboxEvent;
-import com.abs.booking.domain.OutboxStatus;
+import com.abs.booking.domain.aggregate.BookingAggregate;
+import com.abs.booking.infrastructure.persistence.outbox.OutboxEvent;
+import com.abs.booking.infrastructure.persistence.outbox.OutboxStatus;
 import com.abs.booking.infrastructure.persistence.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,19 +19,19 @@ public class BookingEventPublisher {
 
     private final OutboxEventRepository outboxEventRepository;
 
-    public void publishHeld(Booking booking) {
+    public void publishHeld(BookingAggregate booking) {
         OutboxEvent event = buildEvent(booking, "BookingHeld");
         outboxEventRepository.save(event);
         log.info("Published BookingHeld event for booking: {}", booking.getBookingCode());
     }
 
-    public void publishExpired(Booking booking) {
+    public void publishExpired(BookingAggregate booking) {
         OutboxEvent event = buildEvent(booking, "BookingExpired");
         outboxEventRepository.save(event);
         log.info("Published BookingExpired event for booking: {}", booking.getBookingCode());
     }
 
-    public void publishConfirmed(Booking booking, String recipientEmail, String passengerName,
+    public void publishConfirmed(BookingAggregate booking, String recipientEmail, String passengerName,
                                  String flightNo, String from, String to, String departureTime) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("bookingCode", booking.getBookingCode());
@@ -59,7 +59,7 @@ public class BookingEventPublisher {
         log.info("Published BookingConfirmed event for booking: {}", booking.getBookingCode());
     }
 
-    public void publishCancelled(Booking booking, String recipientEmail, String passengerName, String reason) {
+    public void publishCancelled(BookingAggregate booking, String recipientEmail, String passengerName, String reason) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("bookingCode", booking.getBookingCode());
         payload.put("userId", booking.getUserId());
@@ -80,7 +80,7 @@ public class BookingEventPublisher {
         log.info("Published BookingCancelled event for booking: {}", booking.getBookingCode());
     }
 
-    private OutboxEvent buildEvent(Booking booking, String eventType) {
+    private OutboxEvent buildEvent(BookingAggregate booking, String eventType) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("bookingId", booking.getId());
         payload.put("bookingCode", booking.getBookingCode());

@@ -1,6 +1,6 @@
 package com.abs.payment.api;
 
-import com.abs.payment.application.PaymentService;
+import com.abs.payment.application.port.in.CreateSePayPaymentUseCase;
 import com.abs.payment.application.dto.CreatePaymentRequest;
 import com.abs.payment.application.dto.PaymentResponse;
 import com.abs.payment.domain.aggregate.PaymentAggregate;
@@ -17,7 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private final PaymentService service;
+    private final CreateSePayPaymentUseCase service;
     private final PaymentRepository repo;
 
     @PostMapping

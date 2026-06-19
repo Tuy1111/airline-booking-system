@@ -4,6 +4,8 @@ import com.abs.payment.application.dto.CreatePaymentRequest;
 import com.abs.payment.application.dto.PaymentCompletedEvent;
 import com.abs.payment.application.dto.PaymentFailedEvent;
 import com.abs.payment.application.dto.SePayWebhookPayload;
+import com.abs.payment.application.port.in.CreateSePayPaymentUseCase;
+import com.abs.payment.application.port.in.HandleSePayWebhookUseCase;
 import com.abs.payment.domain.aggregate.PaymentAggregate;
 import com.abs.payment.domain.aggregate.TransactionAggregate;
 import com.abs.payment.domain.repository.PaymentRepository;
@@ -28,7 +30,7 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PaymentService {
+public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWebhookUseCase {
 
     private static final Pattern CODE_IN_CONTENT =
             Pattern.compile("(ABS\\w{4,})", Pattern.CASE_INSENSITIVE);
@@ -44,6 +46,7 @@ public class PaymentService {
      * Tạo Payment mới gắn với SePay. Idempotent theo idempotencyKey —
      * gọi lại với cùng key trả về payment đã tạo.
      */
+    @Override
     @Transactional
     public PaymentAggregate createSePayPayment(CreatePaymentRequest req) {
         // Idempotency
@@ -74,6 +77,7 @@ public class PaymentService {
         return p;
     }
 
+    @Override
     public String buildQrUrl(PaymentAggregate p) {
         return qrService.buildQrUrl(p.getTransferCode(), p.getAmount());
     }
@@ -82,6 +86,7 @@ public class PaymentService {
      * Xử lý 1 webhook event từ SePay. Trả về true nếu đã apply (state thay đổi),
      * false nếu ignored (duplicate / unknown / outbound).
      */
+    @Override
     @Transactional
     public boolean handleSePayWebhook(SePayWebhookPayload p) {
         if (p == null || !"in".equalsIgnoreCase(p.transferType())) {

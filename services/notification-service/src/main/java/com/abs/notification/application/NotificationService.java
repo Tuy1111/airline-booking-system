@@ -2,6 +2,8 @@ package com.abs.notification.application;
 
 import com.abs.notification.application.dto.SendEmailCommand;
 import com.abs.notification.application.dto.SendSmsCommand;
+import com.abs.notification.application.port.in.SendEmailUseCase;
+import com.abs.notification.application.port.in.SendSmsUseCase;
 import com.abs.notification.domain.aggregate.NotificationAggregate;
 import com.abs.notification.domain.aggregate.NotificationTemplateAggregate;
 import com.abs.notification.domain.repository.NotificationRepository;
@@ -22,7 +24,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class NotificationService {
+public class NotificationService implements SendEmailUseCase, SendSmsUseCase {
 
     private final NotificationRepository notificationRepo;
     private final NotificationTemplateRepository templateRepo;
@@ -30,6 +32,7 @@ public class NotificationService {
     private final EmailSender emailSender;
     private final MeterRegistry meterRegistry;
 
+    @Override
     @Transactional
     public NotificationAggregate sendEmail(SendEmailCommand cmd) {
         String locale = cmd.locale() == null ? "vi" : cmd.locale();
@@ -70,6 +73,7 @@ public class NotificationService {
         return record;
     }
 
+    @Override
     @Transactional
     public NotificationAggregate sendSms(SendSmsCommand cmd) {
         String locale = cmd.locale() == null ? "vi" : cmd.locale();

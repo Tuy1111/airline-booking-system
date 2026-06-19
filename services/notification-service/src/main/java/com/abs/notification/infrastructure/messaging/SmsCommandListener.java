@@ -1,6 +1,6 @@
 package com.abs.notification.infrastructure.messaging;
 
-import com.abs.notification.application.NotificationService;
+import com.abs.notification.application.port.in.SendSmsUseCase;
 import com.abs.notification.application.dto.SendSmsCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class SmsCommandListener {
 
-    private final NotificationService notificationService;
+    private final SendSmsUseCase notificationService;
 
     @RabbitListener(queues = "${app.notification.rabbit.sms-queue}")
     public void onSms(SendSmsCommand cmd) {

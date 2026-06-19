@@ -1,6 +1,6 @@
 package com.abs.notification.api;
 
-import com.abs.notification.application.NotificationService;
+import com.abs.notification.application.port.in.SendEmailUseCase;
 import com.abs.notification.application.dto.SendEmailCommand;
 import com.abs.notification.domain.aggregate.NotificationAggregate;
 import com.abs.notification.domain.repository.NotificationRepository;
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final NotificationRepository repo;
-    private final NotificationService service;
+    private final SendEmailUseCase service;
 
     @GetMapping
     public Page<NotificationAggregate> list(@RequestParam(defaultValue = "0") int page,

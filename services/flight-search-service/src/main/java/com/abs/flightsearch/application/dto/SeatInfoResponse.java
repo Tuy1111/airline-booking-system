@@ -15,16 +15,7 @@ public record SeatInfoResponse(
         BigDecimal price
 ) {
     public static SeatInfoResponse of(FlightSeatAggregate seat, FlightAggregate flight, SeatInventoryAggregate inv) {
-        BigDecimal base = flight.getBasePrice();
-        BigDecimal factor = seat.getPriceFactor() != null ? seat.getPriceFactor() : BigDecimal.ONE;
-        
-        double occupancy = 0.0;
-        if (inv != null && inv.getTotal() > 0) {
-            occupancy = (double) inv.getBooked() / inv.getTotal();
-        }
-        
-        BigDecimal dynamicFactor = BigDecimal.valueOf(1.0 + 0.1 * occupancy);
-        BigDecimal price = base.multiply(factor).multiply(dynamicFactor).setScale(0, RoundingMode.CEILING);
+        BigDecimal price = flight.calculateSeatPrice(seat, inv);
 
         return new SeatInfoResponse(
                 seat.getFlightId(),

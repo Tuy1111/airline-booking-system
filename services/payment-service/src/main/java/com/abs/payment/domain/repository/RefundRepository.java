@@ -1,7 +1,7 @@
 package com.abs.payment.domain.repository;
 
-import com.abs.payment.domain.aggregate.RefundAggregate;
+import com.abs.payment.domain.aggregate.Refund;
 
 public interface RefundRepository {
-    RefundAggregate save(RefundAggregate aggregate);
+    Refund save(Refund aggregate);
 }

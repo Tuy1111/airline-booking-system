@@ -1,6 +1,6 @@
 package com.abs.notification.domain.aggregate;
 
-import com.abs.notification.domain.vo.Channel;
+import com.abs.notification.domain.enums.Channel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class NotificationTemplateAggregate {
+public class NotificationTemplate {
     private String code;
     private String locale;
     private Channel channel;

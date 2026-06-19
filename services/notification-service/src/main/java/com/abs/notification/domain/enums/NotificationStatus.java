@@ -1,4 +1,4 @@
-package com.abs.notification.domain.vo;
+package com.abs.notification.domain.enums;
 
 public enum NotificationStatus {
     PENDING, SENT, FAILED

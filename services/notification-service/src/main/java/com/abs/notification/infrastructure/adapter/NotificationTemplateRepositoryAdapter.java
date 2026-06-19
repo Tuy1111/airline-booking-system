@@ -1,8 +1,8 @@
 package com.abs.notification.infrastructure.adapter;
 
-import com.abs.notification.domain.aggregate.NotificationTemplateAggregate;
+import com.abs.notification.domain.aggregate.NotificationTemplate;
 import com.abs.notification.domain.repository.NotificationTemplateRepository;
-import com.abs.notification.domain.vo.Channel;
+import com.abs.notification.domain.enums.Channel;
 import com.abs.notification.infrastructure.persistence.NotificationTemplateJpaRepository;
 import com.abs.notification.infrastructure.persistence.mapper.NotificationTemplatePersistenceMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,13 +16,13 @@ public class NotificationTemplateRepositoryAdapter implements NotificationTempla
     private final NotificationTemplateJpaRepository repository;
 
     @Override
-    public NotificationTemplateAggregate save(NotificationTemplateAggregate aggregate) {
+    public NotificationTemplate save(NotificationTemplate aggregate) {
         return NotificationTemplatePersistenceMapper.toAggregate(
                 repository.save(NotificationTemplatePersistenceMapper.toEntity(aggregate)));
     }
 
     @Override
-    public Optional<NotificationTemplateAggregate> findByCodeAndLocaleAndChannel(
+    public Optional<NotificationTemplate> findByCodeAndLocaleAndChannel(
             String code,
             String locale,
             Channel channel) {

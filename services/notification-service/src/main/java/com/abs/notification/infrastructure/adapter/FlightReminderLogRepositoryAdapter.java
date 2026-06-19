@@ -1,6 +1,6 @@
 package com.abs.notification.infrastructure.adapter;
 
-import com.abs.notification.domain.aggregate.FlightReminderLogAggregate;
+import com.abs.notification.domain.aggregate.FlightReminderLog;
 import com.abs.notification.domain.repository.FlightReminderLogRepository;
 import com.abs.notification.infrastructure.persistence.FlightReminderLogJpaRepository;
 import com.abs.notification.infrastructure.persistence.mapper.FlightReminderLogPersistenceMapper;
@@ -13,7 +13,7 @@ public class FlightReminderLogRepositoryAdapter implements FlightReminderLogRepo
     private final FlightReminderLogJpaRepository repository;
 
     @Override
-    public FlightReminderLogAggregate save(FlightReminderLogAggregate aggregate) {
+    public FlightReminderLog save(FlightReminderLog aggregate) {
         return FlightReminderLogPersistenceMapper.toAggregate(
                 repository.save(FlightReminderLogPersistenceMapper.toEntity(aggregate)));
     }

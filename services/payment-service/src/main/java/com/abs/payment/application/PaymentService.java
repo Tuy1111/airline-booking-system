@@ -6,13 +6,14 @@ import com.abs.payment.application.dto.PaymentFailedEvent;
 import com.abs.payment.application.dto.SePayWebhookPayload;
 import com.abs.payment.application.port.in.CreateSePayPaymentUseCase;
 import com.abs.payment.application.port.in.HandleSePayWebhookUseCase;
-import com.abs.payment.domain.aggregate.PaymentAggregate;
-import com.abs.payment.domain.aggregate.TransactionAggregate;
+import com.abs.payment.domain.aggregate.Payment;
+import com.abs.payment.domain.aggregate.Transaction;
 import com.abs.payment.domain.repository.PaymentRepository;
 import com.abs.payment.domain.repository.TransactionRepository;
-import com.abs.payment.domain.vo.PaymentGateway;
-import com.abs.payment.domain.vo.PaymentMethod;
-import com.abs.payment.domain.vo.PaymentStatus;
+import com.abs.payment.domain.vo.Money;
+import com.abs.payment.domain.enums.PaymentGateway;
+import com.abs.payment.domain.enums.PaymentMethod;
+import com.abs.payment.domain.enums.PaymentStatus;
 import com.abs.payment.infrastructure.sepay.SePayProperties;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -48,7 +49,7 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
      */
     @Override
     @Transactional
-    public PaymentAggregate createSePayPayment(CreatePaymentRequest req) {
+    public Payment createSePayPayment(CreatePaymentRequest req) {
         // Idempotency
         var existing = paymentRepo.findByIdempotencyKey(req.idempotencyKey());
         if (existing.isPresent()) return existing.get();
@@ -56,12 +57,11 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
         String paymentCode  = "PAY" + RandomStringUtils.randomAlphanumeric(10).toUpperCase();
         String transferCode = qrService.newTransferCode(req.bookingId());
 
-        PaymentAggregate p = PaymentAggregate.builder()
+        Payment p = Payment.builder()
                 .paymentCode(paymentCode)
                 .bookingId(req.bookingId())
                 .userId(req.userId())
-                .amount(req.amount())
-                .currency("VND")
+                .total(Money.vnd(req.amount()))
                 .method(req.method() == null ? PaymentMethod.BANK_TRANSFER : req.method())
                 .gateway(PaymentGateway.SEPAY)
                 .status(PaymentStatus.PENDING)
@@ -73,13 +73,13 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
 
         counter("created").increment();
         log.info("Payment created: code={} amount={} transferCode={}",
-                p.getPaymentCode(), p.getAmount(), p.getTransferCode());
+                p.getPaymentCode(), p.getTotal().amount(), p.getTransferCode());
         return p;
     }
 
     @Override
-    public String buildQrUrl(PaymentAggregate p) {
-        return qrService.buildQrUrl(p.getTransferCode(), p.getAmount());
+    public String buildQrUrl(Payment p) {
+        return qrService.buildQrUrl(p.getTransferCode(), p.getTotal().amount());
     }
 
     /**
@@ -103,7 +103,7 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
             return false;
         }
 
-        PaymentAggregate payment = paymentRepo.findByTransferCode(code).orElse(null);
+        Payment payment = paymentRepo.findByTransferCode(code).orElse(null);
         if (payment == null) {
             log.warn("SePay webhook: unknown transferCode={}", code);
             counter("webhook.unknown_code").increment();
@@ -126,7 +126,7 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
 
         // Đối soát số tiền
         BigDecimal got      = p.transferAmount();
-        BigDecimal expected = payment.getAmount();
+        BigDecimal expected = payment.getTotal().amount();
         if (got == null || expected.compareTo(got) != 0) {
             return markFailed(payment, p,
                     "amount mismatch: expected=" + expected + " got=" + got);
@@ -136,7 +136,7 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
         payment.markSuccessful(p.referenceCode(), LocalDateTime.now());
         payment = paymentRepo.save(payment);
 
-        TransactionAggregate txn = TransactionAggregate.builder()
+        Transaction txn = Transaction.builder()
                 .paymentId(payment.getId())
                 .gatewayTxnId(p.referenceCode())
                 .gatewayResponse(truncate(p.toString(), 4000))
@@ -147,7 +147,7 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
         events.publishCompleted(new PaymentCompletedEvent(
                 payment.getId(), payment.getPaymentCode(),
                 payment.getBookingId(), payment.getUserId(),
-                payment.getAmount(), payment.getCurrency(),
+                payment.getTotal().amount(), payment.getTotal().currency(),
                 payment.getGateway().name(), payment.getReferenceCode(),
                 payment.getCompletedAt()
         ));
@@ -158,11 +158,11 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
         return true;
     }
 
-    private boolean markFailed(PaymentAggregate payment, SePayWebhookPayload p, String reason) {
+    private boolean markFailed(Payment payment, SePayWebhookPayload p, String reason) {
         payment.markFailed(reason, p.referenceCode(), LocalDateTime.now());
         payment = paymentRepo.save(payment);
 
-        txnRepo.save(TransactionAggregate.builder()
+        txnRepo.save(Transaction.builder()
                 .paymentId(payment.getId())
                 .gatewayTxnId(p.referenceCode())
                 .gatewayResponse(truncate(p.toString(), 4000))
@@ -172,7 +172,7 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
         events.publishFailed(new PaymentFailedEvent(
                 payment.getId(), payment.getPaymentCode(),
                 payment.getBookingId(), payment.getUserId(),
-                payment.getAmount(), reason
+                payment.getTotal().amount(), reason
         ));
 
         counter("webhook.failed").increment();

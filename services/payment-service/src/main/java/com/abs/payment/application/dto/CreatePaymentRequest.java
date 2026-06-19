@@ -1,6 +1,6 @@
 package com.abs.payment.application.dto;
 
-import com.abs.payment.domain.vo.PaymentMethod;
+import com.abs.payment.domain.enums.PaymentMethod;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;

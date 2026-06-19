@@ -1,6 +1,6 @@
 package com.abs.notification.infrastructure.persistence;
 
-import com.abs.notification.domain.vo.NotificationStatus;
+import com.abs.notification.domain.enums.NotificationStatus;
 import com.abs.notification.infrastructure.persistence.entity.NotificationEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

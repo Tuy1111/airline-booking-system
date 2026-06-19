@@ -1,4 +1,4 @@
-package com.abs.payment.domain.vo;
+package com.abs.payment.domain.enums;
 
 public enum PaymentGateway {
     SEPAY,

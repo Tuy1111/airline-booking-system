@@ -1,7 +1,7 @@
 package com.abs.payment.application.port.in;
 
 import com.abs.payment.application.dto.CreatePaymentRequest;
-import com.abs.payment.domain.aggregate.PaymentAggregate;
+import com.abs.payment.domain.aggregate.Payment;
 
 /**
  * Inbound Port (driving) — use case "tạo thanh toán SePay".
@@ -12,8 +12,8 @@ import com.abs.payment.domain.aggregate.PaymentAggregate;
 public interface CreateSePayPaymentUseCase {
 
     /** Tạo Payment mới (idempotent theo idempotencyKey). */
-    PaymentAggregate createSePayPayment(CreatePaymentRequest req);
+    Payment createSePayPayment(CreatePaymentRequest req);
 
     /** Dựng URL ảnh QR cho payment để hiển thị cho người dùng. */
-    String buildQrUrl(PaymentAggregate payment);
+    String buildQrUrl(Payment payment);
 }

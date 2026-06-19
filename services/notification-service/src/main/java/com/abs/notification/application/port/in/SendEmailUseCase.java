@@ -1,7 +1,7 @@
 package com.abs.notification.application.port.in;
 
 import com.abs.notification.application.dto.SendEmailCommand;
-import com.abs.notification.domain.aggregate.NotificationAggregate;
+import com.abs.notification.domain.aggregate.Notification;
 
 /**
  * Inbound Port (driving) — use case "gửi email".
@@ -12,5 +12,5 @@ import com.abs.notification.domain.aggregate.NotificationAggregate;
 public interface SendEmailUseCase {
 
     /** Render template + gửi email, lưu lại bản ghi Notification. */
-    NotificationAggregate sendEmail(SendEmailCommand cmd);
+    Notification sendEmail(SendEmailCommand cmd);
 }

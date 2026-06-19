@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class FlightReminderLogAggregate {
+public class FlightReminderLog {
     private Long bookingId;
     private Long flightId;
     private LocalDateTime sentAt;

@@ -1,8 +1,8 @@
 package com.abs.notification.domain.repository;
 
-import com.abs.notification.domain.aggregate.FlightReminderLogAggregate;
+import com.abs.notification.domain.aggregate.FlightReminderLog;
 
 public interface FlightReminderLogRepository {
-    FlightReminderLogAggregate save(FlightReminderLogAggregate aggregate);
+    FlightReminderLog save(FlightReminderLog aggregate);
     boolean existsByBookingId(Long bookingId);
 }

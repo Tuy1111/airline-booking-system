@@ -1,7 +1,7 @@
 package com.abs.notification.infrastructure.persistence.entity;
 
-import com.abs.notification.domain.vo.Channel;
-import com.abs.notification.domain.vo.NotificationStatus;
+import com.abs.notification.domain.enums.Channel;
+import com.abs.notification.domain.enums.NotificationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;

@@ -1,20 +1,20 @@
 package com.abs.payment.infrastructure.persistence.mapper;
 
-import com.abs.payment.domain.aggregate.PaymentAggregate;
+import com.abs.payment.domain.aggregate.Payment;
+import com.abs.payment.domain.vo.Money;
 import com.abs.payment.infrastructure.persistence.entity.PaymentEntity;
 
 public final class PaymentPersistenceMapper {
     private PaymentPersistenceMapper() {
     }
 
-    public static PaymentAggregate toAggregate(PaymentEntity entity) {
-        return PaymentAggregate.builder()
+    public static Payment toAggregate(PaymentEntity entity) {
+        return Payment.builder()
                 .id(entity.getId())
                 .paymentCode(entity.getPaymentCode())
                 .bookingId(entity.getBookingId())
                 .userId(entity.getUserId())
-                .amount(entity.getAmount())
-                .currency(entity.getCurrency())
+                .total(Money.of(entity.getAmount(), entity.getCurrency()))
                 .method(entity.getMethod())
                 .gateway(entity.getGateway())
                 .status(entity.getStatus())
@@ -28,14 +28,14 @@ public final class PaymentPersistenceMapper {
                 .build();
     }
 
-    public static PaymentEntity toEntity(PaymentAggregate aggregate) {
+    public static PaymentEntity toEntity(Payment aggregate) {
         return PaymentEntity.builder()
                 .id(aggregate.getId())
                 .paymentCode(aggregate.getPaymentCode())
                 .bookingId(aggregate.getBookingId())
                 .userId(aggregate.getUserId())
-                .amount(aggregate.getAmount())
-                .currency(aggregate.getCurrency())
+                .amount(aggregate.getTotal().amount())
+                .currency(aggregate.getTotal().currency())
                 .method(aggregate.getMethod())
                 .gateway(aggregate.getGateway())
                 .status(aggregate.getStatus())

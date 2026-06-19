@@ -1,6 +1,6 @@
 package com.abs.notification.infrastructure.messaging;
 
-import com.abs.notification.application.NotificationService;
+import com.abs.notification.application.port.in.SendEmailUseCase;
 import com.abs.notification.application.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +15,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class BookingEventListener {
 
-    private final NotificationService notificationService;
+    private final SendEmailUseCase notificationService;
 
     @KafkaListener(topics = "${app.notification.kafka.booking-confirmed-topic}",
             containerFactory = "kafkaListenerContainerFactory")

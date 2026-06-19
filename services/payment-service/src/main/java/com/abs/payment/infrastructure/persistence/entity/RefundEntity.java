@@ -1,6 +1,6 @@
 package com.abs.payment.infrastructure.persistence.entity;
 
-import com.abs.payment.domain.vo.RefundStatus;
+import com.abs.payment.domain.enums.RefundStatus;
 import jakarta.persistence.*;
 import lombok.*;
 

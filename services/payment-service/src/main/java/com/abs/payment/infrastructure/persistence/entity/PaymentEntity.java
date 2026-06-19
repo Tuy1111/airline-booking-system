@@ -1,8 +1,8 @@
 package com.abs.payment.infrastructure.persistence.entity;
 
-import com.abs.payment.domain.vo.PaymentGateway;
-import com.abs.payment.domain.vo.PaymentMethod;
-import com.abs.payment.domain.vo.PaymentStatus;
+import com.abs.payment.domain.enums.PaymentGateway;
+import com.abs.payment.domain.enums.PaymentMethod;
+import com.abs.payment.domain.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 

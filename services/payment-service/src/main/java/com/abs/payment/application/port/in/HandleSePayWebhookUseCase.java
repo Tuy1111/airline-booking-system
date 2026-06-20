@@ -1,6 +1,6 @@
 package com.abs.payment.application.port.in;
 
-import com.abs.payment.application.dto.SePayWebhookPayload;
+import com.abs.payment.api.dto.SePayWebhookPayload;
 
 /**
  * Inbound Port (driving) — use case "xử lý webhook từ SePay".

@@ -30,6 +30,11 @@ public class NotificationRepositoryAdapter implements NotificationRepository {
     }
 
     @Override
+    public Optional<Notification> findByDedupKey(String dedupKey) {
+        return repository.findByDedupKey(dedupKey).map(NotificationPersistenceMapper::toAggregate);
+    }
+
+    @Override
     public Page<Notification> findAll(Pageable pageable) {
         return repository.findAll(pageable).map(NotificationPersistenceMapper::toAggregate);
     }

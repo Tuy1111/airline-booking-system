@@ -1,4 +1,4 @@
-package com.abs.payment.application.dto;
+package com.abs.payment.api.dto;
 
 import com.abs.payment.domain.aggregate.Payment;
 import com.abs.payment.domain.enums.PaymentStatus;

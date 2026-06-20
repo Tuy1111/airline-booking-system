@@ -5,7 +5,7 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/payment_db
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/payment_db
     username: ${DB_USER}
     password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
@@ -21,10 +21,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  mvc:
-    path match:
-      base-path: /api/v1
-
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
@@ -51,6 +47,9 @@ app:
   outbox:
     poll-interval-ms: 2000
     batch-size: 50
+  payment:
+    # Quét các payment PENDING quá hạn (expires_at) -> đánh FAILED + publish payment.failed
+    expiry-scan-ms: 60000
 
 management:
   endpoints:

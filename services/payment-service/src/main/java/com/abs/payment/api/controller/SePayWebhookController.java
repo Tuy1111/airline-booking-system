@@ -1,7 +1,7 @@
-package com.abs.payment.api;
+package com.abs.payment.api.controller;
 
+import com.abs.payment.api.dto.SePayWebhookPayload;
 import com.abs.payment.application.port.in.HandleSePayWebhookUseCase;
-import com.abs.payment.application.dto.SePayWebhookPayload;
 import com.abs.payment.infrastructure.sepay.SePayProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ import java.util.Map;
  */
 @Slf4j
 @RestController
-@RequestMapping("/payments/webhooks/sepay")
+@RequestMapping(ApiPath.WEBHOOK_SEPAY)
 @RequiredArgsConstructor
 public class SePayWebhookController {
 

@@ -1,4 +1,4 @@
-package com.abs.payment.application.dto;
+package com.abs.payment.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

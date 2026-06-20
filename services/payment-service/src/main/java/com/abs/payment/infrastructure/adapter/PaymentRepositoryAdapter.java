@@ -1,6 +1,7 @@
 package com.abs.payment.infrastructure.adapter;
 
 import com.abs.payment.domain.aggregate.Payment;
+import com.abs.payment.domain.enums.PaymentStatus;
 import com.abs.payment.domain.repository.PaymentRepository;
 import com.abs.payment.infrastructure.persistence.PaymentJpaRepository;
 import com.abs.payment.infrastructure.persistence.mapper.PaymentPersistenceMapper;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,5 +63,18 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
         return repository.findByBookingId(bookingId).stream()
                 .map(PaymentPersistenceMapper::toAggregate)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Payment> findExpiredPending(LocalDateTime now) {
+        return repository.findByStatusAndExpiresAtBefore(PaymentStatus.PENDING, now).stream()
+                .map(PaymentPersistenceMapper::toAggregate)
+                .toList();
+    }
+
+    @Override
+    public boolean markExpiredIfPending(Long id, String reason, LocalDateTime now) {
+        return repository.markExpiredIfPending(id, reason, now) == 1;
     }
 }

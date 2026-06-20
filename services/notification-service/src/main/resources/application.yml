@@ -5,8 +5,8 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/notify_db
-    username: ${DB_USER:abs}
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/notify_db
+    username: ${DB_USER}
     password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
   jpa:
@@ -21,9 +21,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  mvc:
-    pathmatch:
-      base-path: /api/v1
 
   # SMTP -> MailHog in dev (no auth)
   mail:
@@ -47,7 +44,7 @@ spring:
           max-attempts: 3
           initial-interval: 1s
 
-  # Kafka event consumer (booking.confirmed, payment.failed, ...)
+  # Kafka event consumer (booking.confirmed, booking.cancelled)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
     consumer:
@@ -67,7 +64,6 @@ app:
     kafka:
       booking-confirmed-topic: booking.confirmed
       booking-cancelled-topic: booking.cancelled
-      payment-failed-topic: payment.failed
 
 management:
   endpoints:

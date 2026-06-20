@@ -33,7 +33,8 @@ public class BookingEventListener {
                         "seatNo", evt.seatNo(),
                         "amount", evt.amount(),
                         "currency", evt.currency()
-                )));
+                ),
+                "BOOKING_CONFIRMED:" + evt.bookingCode()));
     }
 
     @KafkaListener(topics = "${app.notification.kafka.booking-cancelled-topic}",
@@ -46,21 +47,15 @@ public class BookingEventListener {
                         "bookingCode", evt.bookingCode(),
                         "passengerName", evt.passengerName(),
                         "reason", evt.reason()
-                )));
+                ),
+                "BOOKING_CANCELLED:" + evt.bookingCode()));
     }
 
-    @KafkaListener(topics = "${app.notification.kafka.payment-failed-topic}",
-            containerFactory = "kafkaListenerContainerFactory")
-    public void onPaymentFailed(PaymentFailedEvent evt) {
-        log.info("Rx payment.failed: {}", evt.bookingCode());
-        notificationService.sendEmail(new SendEmailCommand(
-                "PAYMENT_FAILED", "vi", evt.userId(), evt.recipientEmail(),
-                vars(
-                        "bookingCode", evt.bookingCode(),
-                        "passengerName", evt.passengerName(),
-                        "reason", evt.reason()
-                )));
-    }
+    // Chú ý: KHÔNG subscribe "payment.failed" ở đây.
+    // payment.failed là event hướng tới booking-service (nhả ghế / Saga compensation)
+    // và chỉ mang bookingId/userId — thiếu passengerName + recipientEmail nên không
+    // render/gửi email được. Khi booking-service xử lý xong, nó publish "booking.cancelled"
+    // (đã enrich đủ thông tin khách) → email báo huỷ/thất bại đi qua onBookingCancelled.
 
     private static Map<String, Object> vars(Object... kv) {
         Map<String, Object> m = new HashMap<>();

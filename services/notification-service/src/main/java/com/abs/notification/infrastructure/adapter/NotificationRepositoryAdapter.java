@@ -1,0 +1,51 @@
+package com.abs.notification.infrastructure.adapter;
+
+import com.abs.notification.domain.aggregate.NotificationAggregate;
+import com.abs.notification.domain.repository.NotificationRepository;
+import com.abs.notification.domain.vo.NotificationStatus;
+import com.abs.notification.infrastructure.persistence.NotificationJpaRepository;
+import com.abs.notification.infrastructure.persistence.mapper.NotificationPersistenceMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+
+@Component
+@RequiredArgsConstructor
+public class NotificationRepositoryAdapter implements NotificationRepository {
+    private final NotificationJpaRepository repository;
+
+    @Override
+    public NotificationAggregate save(NotificationAggregate aggregate) {
+        return NotificationPersistenceMapper.toAggregate(
+                repository.save(NotificationPersistenceMapper.toEntity(aggregate)));
+    }
+
+    @Override
+    public Optional<NotificationAggregate> findById(Long id) {
+        return repository.findById(id).map(NotificationPersistenceMapper::toAggregate);
+    }
+
+    @Override
+    public Page<NotificationAggregate> findAll(Pageable pageable) {
+        return repository.findAll(pageable).map(NotificationPersistenceMapper::toAggregate);
+    }
+
+    @Override
+    public Page<NotificationAggregate> findByUserId(Long userId, Pageable pageable) {
+        return repository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(NotificationPersistenceMapper::toAggregate);
+    }
+
+    @Override
+    public List<NotificationAggregate> findByStatus(
+            NotificationStatus status,
+            Pageable pageable) {
+        return repository.findByStatus(status, pageable).stream()
+                .map(NotificationPersistenceMapper::toAggregate)
+                .toList();
+    }
+}

@@ -5,9 +5,9 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/notify_db
-    username: abs
-    password: abs123
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/notify_db
+    username: ${DB_USER:abs}
+    password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -21,9 +21,83 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+  mvc:
+    pathmatch:
+      base-path: /api/v1
+
+  # SMTP -> MailHog in dev (no auth)
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+
+  # RabbitMQ command queue (cmd.email.send / cmd.sms.send)
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASS:guest}
+    listener:
+      simple:
+        acknowledge-mode: auto
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+
+  # Kafka event consumer (booking.confirmed, payment.failed, ...)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+app:
+  notification:
+    from-address: ${MAIL_FROM:no-reply@airline.local}
+    rabbit:
+      email-queue: cmd.email.send
+      sms-queue: cmd.sms.send
+    kafka:
+      booking-confirmed-topic: booking.confirmed
+      booking-cancelled-topic: booking.cancelled
+      payment-failed-topic: payment.failed
 
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, flyway
+        include: health, info, flyway, prometheus, metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+    prometheus:
+      access: unrestricted
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka

@@ -34,3 +34,35 @@ INSERT INTO seat_inventory (flight_id, total, available, held, booked) VALUES
   (4, 180, 180, 0, 0),
   (5, 180, 180, 0, 0),
   (6, 180, 180, 0, 0);
+
+-- Seed data cho flight_seat (các ghế cụ thể cho từng chuyến bay)
+INSERT INTO flight_seat (flight_id, seat_no, class, status, price_factor) VALUES
+  -- Flight 1 (VN201)
+  (1, '12A', 'ECONOMY', 'AVAILABLE', 1.00),
+  (1, '12B', 'ECONOMY', 'AVAILABLE', 1.00),
+  (1, '12C', 'ECONOMY', 'AVAILABLE', 1.00),
+  (1, '12D', 'ECONOMY', 'AVAILABLE', 1.00),
+  (1, '1A', 'BUSINESS', 'AVAILABLE', 1.50),
+  (1, '1B', 'BUSINESS', 'AVAILABLE', 1.50),
+
+  -- Flight 2 (VN203)
+  (2, '12A', 'ECONOMY', 'AVAILABLE', 1.00),
+  (2, '12B', 'ECONOMY', 'AVAILABLE', 1.00),
+  (2, '1A', 'BUSINESS', 'AVAILABLE', 1.50),
+
+  -- Flight 3 (VJ521)
+  (3, '12A', 'ECONOMY', 'AVAILABLE', 1.00),
+  (3, '12B', 'ECONOMY', 'AVAILABLE', 1.00),
+
+  -- Flight 4 (QH101)
+  (4, '12A', 'ECONOMY', 'AVAILABLE', 1.00),
+  (4, '12B', 'ECONOMY', 'AVAILABLE', 1.00),
+
+  -- Flight 5 (VN202)
+  (5, '12A', 'ECONOMY', 'AVAILABLE', 1.00),
+  (5, '12B', 'ECONOMY', 'AVAILABLE', 1.00),
+
+  -- Flight 6 (VN551)
+  (6, '12A', 'ECONOMY', 'AVAILABLE', 1.00),
+  (6, '12B', 'ECONOMY', 'AVAILABLE', 1.00);
+

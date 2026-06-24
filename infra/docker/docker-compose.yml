@@ -1,0 +1,107 @@
+# Local dev stack for airline-booking-system
+# Run: docker compose -f infra/docker/docker-compose.yml up -d
+#
+# Hosts/ports (from your machine):
+#   Postgres ............ localhost:5432  (user/pw: abs/abs123)
+#   RabbitMQ ............ localhost:5672  (mgmt UI: localhost:15672, guest/guest)
+#   Kafka ............... localhost:9092
+#   Redis ............... localhost:6379
+#   MailHog SMTP/UI ..... localhost:1025  / localhost:8025
+#   Zipkin .............. localhost:9411
+#   Prometheus .......... localhost:9090
+#   Grafana ............. localhost:3000  (admin/admin)
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: abs-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-abs}
+      POSTGRES_PASSWORD: ${DB_PASS:-abs123}
+      POSTGRES_DB: postgres
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-abs}"]
+      interval: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: abs-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: abs-redis
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: abs-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: abs-kafka
+    depends_on: [zookeeper]
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: abs-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: abs-zipkin
+    ports: ["9411:9411"]
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: abs-prometheus
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: abs-grafana
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  pgdata:
+  grafana-data:

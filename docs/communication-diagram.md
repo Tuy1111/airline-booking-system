@@ -323,3 +323,223 @@ sequenceDiagram
 - Diagram trên đã có đầy đủ thông tin: services, ports, topics, queues, infra components, numbered steps → chỉ cần vẽ lại
 
 Diagram trong file này có **đầy đủ thông tin tương đương** ảnh TalentHub bạn gửi: actors, gateway với routing/JWT/CORS/RateLimit, 5 services với aggregate roots, cross-cutting infrastructure đánh số layer, Kafka topics + RabbitMQ queues, DB-per-service, external systems, legend, và use case flow 13 bước.
+
+---
+
+## 9. UML Communication Diagram (Collaboration) — Luồng 1: Customer books a flight
+
+> **Phân biệt với Sequence Diagram (mục 6):**
+> - **Sequence** = nhấn mạnh **thứ tự thời gian** (trục dọc), object xếp ngang trên cùng.
+> - **Communication (Collaboration)** = nhấn mạnh **cấu trúc tĩnh** (object + link giữa chúng), thứ tự thể hiện qua **số đánh phân cấp** trên message: `1`, `1.1`, `1.2.1`...
+>
+> Cùng một kịch bản, hai cách nhìn khác nhau — báo cáo UML thường yêu cầu cả hai.
+
+**Quy ước đánh số:** số nguyên = bước chính theo thời gian; số con (`1.1`, `1.2.1`) = lời gọi lồng bên trong một bước (caller chờ callee). Dấu `*` = async (fire-and-forget). Link liền = sync REST/Feign, link đứt = async qua broker.
+
+```mermaid
+flowchart LR
+    C([👤 Customer])
+    GW["API Gateway<br/>:8080"]
+    KC["Keycloak<br/>:8180"]
+    BK["booking-service ⭐<br/>:8082"]
+    FS["flight-search-service<br/>:8081"]
+    US["user-service<br/>:8083"]
+    PM["payment-service<br/>:8084"]
+    NT["notification-service<br/>:8085"]
+    R[("Redis<br/>seat-hold lock")]
+    K[["Kafka :9092"]]
+    MQ[["RabbitMQ :5672"]]
+    PG["Mock Payment GW"]
+    MH["MailHog SMTP"]
+    DB2[("booking_db")]
+    DB4[("payment_db")]
+    DB5[("notify_db")]
+
+    %% ── Bước 1: HOLD SEAT (sync, lồng nhau) ──
+    C   ==>|"1: POST /bookings/hold (JWT)"| GW
+    GW  ==>|"1.1: validate JWT"| KC
+    GW  ==>|"1.2: forward request"| BK
+    BK  ==>|"1.2.1: Feign GET seat+price"| FS
+    BK  ==>|"1.2.2: Feign GET user ACTIVE?"| US
+    BK  ==>|"1.2.3: SETNX seat lock TTL=10m"| R
+    BK  ==>|"1.2.4: INSERT booking(HELD)+outbox"| DB2
+
+    %% ── Bước 2: publish booking.held (async) ──
+    BK  -.->|"2*: publish booking.held"| K
+
+    %% ── Bước 3: PAY (sync, lồng nhau) ──
+    C   ==>|"3: POST /payments (JWT)"| GW
+    GW  ==>|"3.1: forward request"| PM
+    PM  ==>|"3.1.1: charge"| PG
+    PM  ==>|"3.1.2: INSERT payment(SUCCESS)+outbox"| DB4
+
+    %% ── Bước 4-6: SAGA confirm (async choreography) ──
+    PM  -.->|"4*: publish payment.completed"| K
+    K   -.->|"5*: consume payment.completed"| BK
+    BK  ==>|"5.1: UPDATE booking=CONFIRMED"| DB2
+    BK  ==>|"5.2: DEL seat lock"| R
+    BK  -.->|"6*: publish booking.confirmed"| K
+
+    %% ── Bước 7-8: NOTIFY (async) ──
+    K   -.->|"7*: consume booking.confirmed"| NT
+    NT  ==>|"7.1: render BOOKING_CONFIRMED template"| DB5
+    NT  -.->|"7.2*: enqueue cmd.email.send"| MQ
+    MQ  -.->|"8*: deliver cmd.email.send"| NT
+    NT  ==>|"8.1: SMTP send"| MH
+    NT  ==>|"8.2: INSERT notification(SENT)"| DB5
+    MH  -.->|"8.3: 📧 email arrives"| C
+
+    classDef svc fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef db fill:#fef3c7,stroke:#d97706
+    classDef broker fill:#1f2937,stroke:#000,color:#fff
+    classDef edge fill:#fde68a,stroke:#b45309,stroke-width:2px
+    classDef ext fill:#fce7f3,stroke:#db2777
+    class FS,BK,US,PM,NT svc
+    class DB2,DB4,DB5,R db
+    class K,MQ broker
+    class GW edge
+    class KC,PG,MH ext
+```
+
+### Bảng message — Luồng 1
+
+| # | Từ → Đến | Message | Loại |
+| ----- | ----------------------------- | --------------------------------------------- | ------------------ |
+| 1 | Customer → Gateway | `POST /bookings/hold` (JWT, flightId, seat) | Sync HTTPS |
+| 1.1 | Gateway → Keycloak | validate JWT | Sync |
+| 1.2 | Gateway → booking | forward (sau khi pass JWT + rate-limit) | Sync REST |
+| 1.2.1 | booking → flight-search | Feign: ghế còn trống? giá hiện tại? | Sync Feign |
+| 1.2.2 | booking → user | Feign: user còn ACTIVE? (Circuit Breaker) | Sync Feign |
+| 1.2.3 | booking → Redis | `SETNX seat:VN201:12A` TTL 10 phút | Sync (lock) |
+| 1.2.4 | booking → booking_db | INSERT booking(HELD) + outbox event | Service→DB |
+| 2* | booking → Kafka | publish `booking.held` (outbox relay) | Async publish |
+| 3 | Customer → Gateway | `POST /payments` (JWT) | Sync HTTPS |
+| 3.1 | Gateway → payment | forward | Sync REST |
+| 3.1.1 | payment → Payment GW | charge | Sync (external) |
+| 3.1.2 | payment → payment_db | INSERT payment(SUCCESS) + outbox | Service→DB |
+| 4* | payment → Kafka | publish `payment.completed` | Async publish |
+| 5* | Kafka → booking | consume `payment.completed` | Async consume |
+| 5.1 | booking → booking_db | UPDATE booking = CONFIRMED | Service→DB |
+| 5.2 | booking → Redis | `DEL` seat lock (release ghế) | Sync (unlock) |
+| 6* | booking → Kafka | publish `booking.confirmed` | Async publish |
+| 7* | Kafka → notification | consume `booking.confirmed` | Async consume |
+| 7.1 | notification → notify_db | render template `BOOKING_CONFIRMED` | Service→DB |
+| 7.2* | notification → RabbitMQ | enqueue `cmd.email.send` | Async command |
+| 8* | RabbitMQ → notification | deliver `cmd.email.send` (worker pool) | Async command |
+| 8.1 | notification → MailHog | SMTP send | External |
+| 8.2 | notification → notify_db | INSERT notification log (SENT) | Service→DB |
+| 8.3 | MailHog → Customer | 📧 email tới hộp thư | External |
+
+> **Nhánh Compensation (payment fail):** thay `4*` bằng `payment.failed` → `5*` booking UPDATE = CANCELLED + DEL lock → `6*` publish `booking.cancelled` → `7*` notification gửi email "thanh toán thất bại". Xem chi tiết ở mục 3.
+
+---
+
+## 10. UML Communication Diagram — Luồng 2: Đăng ký & Đăng nhập (Authentication)
+
+> **Actor:** Khách chưa có / đã có tài khoản. **Service trung tâm:** `user-service :8083` (Aggregate: User, Passenger — **JWT issuer**).
+> Route `/auth/**` là **public** (không cần JWT). Sau khi login, mọi request khác đính kèm `Bearer <JWT>` và được Gateway validate trước khi route (nối tiếp sang Luồng 1).
+
+### 10.1 — Đăng ký (Register)
+
+```mermaid
+flowchart LR
+    C([👤 Customer])
+    GW["API Gateway<br/>:8080"]
+    US["user-service ⭐<br/>:8083<br/>JWT issuer"]
+    NT["notification-service<br/>:8085"]
+    DB3[("user_db")]
+    DB5[("notify_db")]
+    K[["Kafka :9092"]]
+    MQ[["RabbitMQ :5672"]]
+    MH["MailHog SMTP"]
+
+    C   ==>|"1: POST /auth/register (name,email,password)"| GW
+    GW  ==>|"1.1: forward (public route, no JWT)"| US
+    US  ==>|"1.1.1: check email chưa tồn tại"| DB3
+    US  ==>|"1.1.2: BCrypt hash + INSERT user(ACTIVE, role=CUSTOMER)"| DB3
+    US  -.->|"1.1.3: return 201 Created"| C
+    US  -.->|"2*: publish user.registered"| K
+    K   -.->|"3*: consume user.registered"| NT
+    NT  ==>|"3.1: render WELCOME template"| DB5
+    NT  -.->|"3.2*: enqueue cmd.email.send"| MQ
+    MQ  -.->|"4*: deliver cmd.email.send"| NT
+    NT  ==>|"4.1: SMTP welcome email"| MH
+    MH  -.->|"4.2: 📧 email arrives"| C
+
+    classDef svc fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef db fill:#fef3c7,stroke:#d97706
+    classDef broker fill:#1f2937,stroke:#000,color:#fff
+    classDef edge fill:#fde68a,stroke:#b45309,stroke-width:2px
+    classDef ext fill:#fce7f3,stroke:#db2777
+    class US,NT svc
+    class DB3,DB5 db
+    class K,MQ broker
+    class GW edge
+    class MH ext
+```
+
+| # | Từ → Đến | Message | Loại |
+| ----- | ------------------------- | ------------------------------------------------ | -------------- |
+| 1 | Customer → Gateway | `POST /auth/register` (name, email, password) | Sync HTTPS |
+| 1.1 | Gateway → user-service | forward (route public, không cần JWT) | Sync REST |
+| 1.1.1 | user-service → user_db | SELECT — email đã tồn tại? (nếu có → 409) | Service→DB |
+| 1.1.2 | user-service → user_db | BCrypt hash password + INSERT user(ACTIVE) | Service→DB |
+| 1.1.3 | user-service → Customer | `201 Created` { userId } | Sync return |
+| 2* | user-service → Kafka | publish `user.registered` | Async publish |
+| 3* | Kafka → notification | consume `user.registered` | Async consume |
+| 3.1 | notification → notify_db | render template `WELCOME` | Service→DB |
+| 3.2* | notification → RabbitMQ | enqueue `cmd.email.send` | Async command |
+| 4* | RabbitMQ → notification | deliver `cmd.email.send` (worker pool) | Async command |
+| 4.1 | notification → MailHog | SMTP gửi welcome email | External |
+| 4.2 | MailHog → Customer | 📧 email chào mừng | External |
+
+### 10.2 — Đăng nhập (Login) + dùng JWT cho request kế tiếp
+
+```mermaid
+flowchart LR
+    C([👤 Customer])
+    GW["API Gateway<br/>:8080"]
+    US["user-service ⭐<br/>:8083<br/>JWT issuer"]
+    KC["Keycloak / JWKS<br/>:8180"]
+    BK["booking-service<br/>:8082"]
+    DB3[("user_db")]
+
+    %% ── Login ──
+    C   ==>|"1: POST /auth/login (email, password)"| GW
+    GW  ==>|"1.1: forward (public route)"| US
+    US  ==>|"1.1.1: SELECT user by email"| DB3
+    US  ==>|"1.1.2: verify BCrypt password"| US
+    US  ==>|"1.1.3: sign + issue JWT (access+refresh)"| US
+    US  -.->|"1.1.4: 200 { accessToken, refreshToken }"| C
+
+    %% ── Authenticated request kế tiếp ──
+    C   ==>|"2: GET /api/... (Authorization: Bearer JWT)"| GW
+    GW  ==>|"2.1: validate chữ ký JWT (JWKS)"| KC
+    GW  ==>|"2.2: forward + claims (đã xác thực)"| BK
+
+    classDef svc fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
+    classDef db fill:#fef3c7,stroke:#d97706
+    classDef edge fill:#fde68a,stroke:#b45309,stroke-width:2px
+    classDef ext fill:#fce7f3,stroke:#db2777
+    class US,BK svc
+    class DB3 db
+    class GW edge
+    class KC ext
+```
+
+| # | Từ → Đến | Message | Loại |
+| ----- | ----------------------- | -------------------------------------------------- | -------------- |
+| 1 | Customer → Gateway | `POST /auth/login` (email, password) | Sync HTTPS |
+| 1.1 | Gateway → user-service | forward (route public) | Sync REST |
+| 1.1.1 | user-service → user_db | SELECT user theo email | Service→DB |
+| 1.1.2 | user-service (self) | verify BCrypt password (sai → 401) | Internal |
+| 1.1.3 | user-service (self) | ký + phát hành JWT (access + refresh token) | Internal |
+| 1.1.4 | user-service → Customer | `200 OK` { accessToken, refreshToken } | Sync return |
+| 2 | Customer → Gateway | request bất kỳ kèm `Authorization: Bearer <JWT>` | Sync HTTPS |
+| 2.1 | Gateway → Keycloak/JWKS | validate chữ ký + hạn JWT (stateless) | Sync |
+| 2.2 | Gateway → service | forward request kèm claims đã xác thực | Sync REST |
+
+> **Ghi chú kiến trúc:**
+> - **MVP (Tuần 1–6):** `user-service` tự ký JWT bằng secret/keypair → Gateway validate bằng public key. Đơn giản, không cần Keycloak.
+> - **Production (Tuần 7+):** thay bằng **Keycloak** làm Identity Provider (OAuth2/OIDC) — login chuyển hướng qua Keycloak, nó phát hành JWT; `user-service` chỉ giữ profile/passenger. Khi đó bước `2.1` validate qua JWKS endpoint của Keycloak (đúng như mô tả trong mục 5).
+> - Bước `1.1.2` / `1.1.3` là thao tác nội bộ trong user-service (self-call) — trên communication diagram thể hiện bằng message trỏ về chính nó.

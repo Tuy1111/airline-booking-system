@@ -11,7 +11,9 @@
 
     <modules>
         <module>shared/common-web</module>
+        <module>infra/service-registry</module>
         <module>infra/api-gateway</module>
+        <module>services/service-template</module>
         <module>services/flight-search-service</module>
         <module>services/booking-service</module>
         <module>services/user-service</module>
@@ -26,6 +28,7 @@
         <spring-boot.version>3.5.14</spring-boot.version>
         <spring-cloud.version>2025.0.0</spring-cloud.version>
         <lombook.version>1.18.46</lombook.version>
+        <spring-dotenv.version>4.0.0</spring-dotenv.version>
     </properties>
 
     <dependencyManagement>
@@ -50,6 +53,11 @@
                 <version>${lombook.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>me.paulschwarz</groupId>
+                <artifactId>spring-dotenv</artifactId>
+                <version>${spring-dotenv.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

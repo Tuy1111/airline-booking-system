@@ -1,6 +1,6 @@
 package com.abs.payment.infrastructure.adapter;
 
-import com.abs.payment.domain.aggregate.TransactionAggregate;
+import com.abs.payment.domain.aggregate.Transaction;
 import com.abs.payment.domain.repository.TransactionRepository;
 import com.abs.payment.infrastructure.persistence.PaymentJpaRepository;
 import com.abs.payment.infrastructure.persistence.TransactionJpaRepository;
@@ -15,7 +15,7 @@ public class TransactionRepositoryAdapter implements TransactionRepository {
     private final PaymentJpaRepository paymentRepository;
 
     @Override
-    public TransactionAggregate save(TransactionAggregate aggregate) {
+    public Transaction save(Transaction aggregate) {
         var payment = paymentRepository.getReferenceById(aggregate.getPaymentId());
         return TransactionPersistenceMapper.toAggregate(
                 repository.save(TransactionPersistenceMapper.toEntity(aggregate, payment)));

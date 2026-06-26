@@ -1,7 +1,10 @@
 package com.abs.booking.domain.aggregate;
 
 import com.abs.booking.domain.vo.BookingStatus;
+<<<<<<< HEAD
 import com.abs.booking.domain.exception.InvalidBookingStateException;
+=======
+>>>>>>> develop
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -41,6 +44,7 @@ public class BookingAggregate {
     public void addItem(BookingItem item) {
         items.add(item);
     }
+<<<<<<< HEAD
 
     public static BookingAggregate createHold(String bookingCode, Long userId, Long flightId, BigDecimal totalAmount, int holdTtlMinutes) {
         LocalDateTime now = LocalDateTime.now();
@@ -96,4 +100,6 @@ public class BookingAggregate {
                 .map(BookingItem::getSeatNo)
                 .toList();
     }
+=======
+>>>>>>> develop
 }

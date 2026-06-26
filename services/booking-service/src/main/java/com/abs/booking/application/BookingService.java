@@ -7,19 +7,30 @@ import com.abs.booking.domain.aggregate.BookingAggregate;
 import com.abs.booking.domain.aggregate.BookingItem;
 import com.abs.booking.domain.vo.BookingStatus;
 import com.abs.booking.domain.repository.BookingRepository;
+<<<<<<< HEAD
 import com.abs.booking.domain.exception.*;
 import com.abs.booking.infrastructure.client.FlightSearchClient;
 import com.abs.booking.infrastructure.client.UserServiceClient;
 import com.abs.booking.infrastructure.redis.SeatLockService;
+=======
+>>>>>>> develop
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+<<<<<<< HEAD
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+=======
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+>>>>>>> develop
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -36,9 +47,14 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final BookingEventPublisher eventPublisher;
+<<<<<<< HEAD
     private final FlightSearchClient flightSearchClient;
     private final UserServiceClient userServiceClient;
     private final SeatLockService seatLockService;
+=======
+    private final RestTemplate restTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
+>>>>>>> develop
     private final Counter heldCounter;
     private final Counter cancelledCounter;
     private final Counter expiredCounter;
@@ -48,16 +64,26 @@ public class BookingService {
 
     public BookingService(BookingRepository bookingRepository,
                           BookingEventPublisher eventPublisher,
+<<<<<<< HEAD
                           FlightSearchClient flightSearchClient,
                           UserServiceClient userServiceClient,
                           SeatLockService seatLockService,
+=======
+                          RestTemplate restTemplate,
+                          StringRedisTemplate stringRedisTemplate,
+>>>>>>> develop
                           MeterRegistry meterRegistry,
                           @Value("${booking.hold.ttl-minutes:10}") int holdTtlMinutes) {
         this.bookingRepository = bookingRepository;
         this.eventPublisher = eventPublisher;
+<<<<<<< HEAD
         this.flightSearchClient = flightSearchClient;
         this.userServiceClient = userServiceClient;
         this.seatLockService = seatLockService;
+=======
+        this.restTemplate = restTemplate;
+        this.stringRedisTemplate = stringRedisTemplate;
+>>>>>>> develop
         this.holdTtlMinutes = holdTtlMinutes;
         this.heldCounter = Counter.builder("booking.held")
                 .description("Number of bookings held")
@@ -76,15 +102,28 @@ public class BookingService {
         String bookingCode = "BK" + LocalDate.now().format(DATE_FORMATTER)
                 + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
 
+<<<<<<< HEAD
         // Call flight-search-client to check seat availability
         Map<String, Object> seatInfo = flightSearchClient.checkSeat(req.flightId(), req.seatNo());
 
         if (seatInfo == null || !"AVAILABLE".equals(seatInfo.get("status"))) {
             throw new SeatNotAvailableException(req.flightId(), req.seatNo());
+=======
+        // Call flight-search-service to check seat availability
+        String seatUrl = "http://localhost:8081/api/v1/flights/" + req.flightId()
+                + "/seats/" + req.seatNo();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> seatInfo = restTemplate.getForObject(seatUrl, Map.class);
+
+        if (seatInfo == null || !"AVAILABLE".equals(seatInfo.get("status"))) {
+            throw new RuntimeException("Seat not available");
+>>>>>>> develop
         }
 
         BigDecimal price = new BigDecimal(seatInfo.get("price").toString());
 
+<<<<<<< HEAD
         // Redis distributed lock
         boolean acquired = seatLockService.acquireLock(
                 req.flightId(), req.seatNo(), userId, Duration.ofMinutes(holdTtlMinutes));
@@ -95,6 +134,29 @@ public class BookingService {
 
         // Build using aggregate factory and save booking
         BookingAggregate booking = BookingAggregate.createHold(bookingCode, userId, req.flightId(), price, holdTtlMinutes);
+=======
+        // Redis SETNX to lock the seat
+        String redisKey = "seat:" + req.flightId() + ":" + req.seatNo();
+        Boolean acquired = stringRedisTemplate.opsForValue()
+                .setIfAbsent(redisKey, userId.toString(), Duration.ofMinutes(holdTtlMinutes));
+
+        if (Boolean.FALSE.equals(acquired)) {
+            throw new RuntimeException("Seat is already held by another user");
+        }
+
+        // Build and save booking
+        LocalDateTime now = LocalDateTime.now();
+        BookingAggregate booking = BookingAggregate.builder()
+                .bookingCode(bookingCode)
+                .userId(userId)
+                .flightId(req.flightId())
+                .status(BookingStatus.HELD)
+                .totalAmount(price)
+                .currency("VND")
+                .heldAt(now)
+                .expiresAt(now.plusMinutes(holdTtlMinutes))
+                .build();
+>>>>>>> develop
 
         BookingItem item = BookingItem.builder()
                 .seatNo(req.seatNo())
@@ -129,7 +191,11 @@ public class BookingService {
     @Transactional(readOnly = true)
     public BookingDetailResponse getBookingById(Long id) {
         BookingAggregate booking = bookingRepository.findById(id)
+<<<<<<< HEAD
                 .orElseThrow(() -> new BookingNotFoundException(id));
+=======
+                .orElseThrow(() -> new RuntimeException("Booking not found with id: " + id));
+>>>>>>> develop
         return BookingDetailResponse.of(booking);
     }
 
@@ -143,6 +209,7 @@ public class BookingService {
     @Transactional
     public BookingDetailResponse cancelBooking(Long id, Long userId) {
         BookingAggregate booking = bookingRepository.findById(id)
+<<<<<<< HEAD
                 .orElseThrow(() -> new BookingNotFoundException(id));
 
         if (!booking.getUserId().equals(userId)) {
@@ -162,6 +229,33 @@ public class BookingService {
 
         // Enrich and publish event via outbox
         String email = userServiceClient.getUserEmail(booking.getUserId());
+=======
+                .orElseThrow(() -> new RuntimeException("Booking not found with id: " + id));
+
+        if (!booking.getUserId().equals(userId)) {
+            throw new RuntimeException("You are not authorized to cancel this booking");
+        }
+
+        if (booking.getStatus() != BookingStatus.HELD && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new RuntimeException("Booking cannot be cancelled in status: " + booking.getStatus());
+        }
+
+        // Release Redis seat locks
+        if (booking.getItems() != null) {
+            for (BookingItem item : booking.getItems()) {
+                String redisKey = "seat:" + booking.getFlightId() + ":" + item.getSeatNo();
+                stringRedisTemplate.delete(redisKey);
+                log.debug("Released Redis lock for key: {}", redisKey);
+            }
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancelledAt(LocalDateTime.now());
+        booking = bookingRepository.save(booking);
+
+        // Enrich and publish event via outbox
+        String email = getUserEmail(booking.getUserId());
+>>>>>>> develop
         String passengerName = (booking.getItems() == null || booking.getItems().isEmpty())
                 ? "Passenger" : booking.getItems().get(0).getPassengerName();
         eventPublisher.publishCancelled(booking, email, passengerName, "Cancelled by user");
@@ -185,6 +279,7 @@ public class BookingService {
         }
 
         for (BookingAggregate booking : expiredBookings) {
+<<<<<<< HEAD
             // Delegate state transition to domain aggregate
             booking.expire();
 
@@ -193,6 +288,17 @@ public class BookingService {
             booking.getSeatNumbers().forEach(seatNo ->
                     seatLockService.releaseLock(flightId, seatNo)
             );
+=======
+            booking.setStatus(BookingStatus.EXPIRED);
+
+            // Release Redis seat locks
+            if (booking.getItems() != null) {
+                for (BookingItem item : booking.getItems()) {
+                    String redisKey = "seat:" + booking.getFlightId() + ":" + item.getSeatNo();
+                    stringRedisTemplate.delete(redisKey);
+                }
+            }
+>>>>>>> develop
 
             bookingRepository.save(booking);
             eventPublisher.publishExpired(booking);
@@ -205,6 +311,7 @@ public class BookingService {
     @Transactional
     public void confirmBooking(Long bookingId, String paymentId) {
         BookingAggregate booking = bookingRepository.findById(bookingId)
+<<<<<<< HEAD
                 .orElseThrow(() -> new BookingNotFoundException(bookingId));
 
         // Delegate state transition to domain aggregate
@@ -224,6 +331,35 @@ public class BookingService {
                 ? "Passenger" : booking.getItems().get(0).getPassengerName();
 
         Map<String, Object> flightInfo = flightSearchClient.getFlightDetails(booking.getFlightId());
+=======
+                .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
+
+        if (booking.getStatus() != BookingStatus.HELD) {
+            log.warn("Booking {} is not in HELD state, status is {}. Cannot confirm.", bookingId, booking.getStatus());
+            return;
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setPaymentId(paymentId);
+        booking.setConfirmedAt(LocalDateTime.now());
+        booking = bookingRepository.save(booking);
+
+        // Release Redis seat locks
+        if (booking.getItems() != null) {
+            for (BookingItem item : booking.getItems()) {
+                String redisKey = "seat:" + booking.getFlightId() + ":" + item.getSeatNo();
+                stringRedisTemplate.delete(redisKey);
+                log.debug("Released Redis lock for key: {}", redisKey);
+            }
+        }
+
+        // Enrich email and flight info
+        String email = getUserEmail(booking.getUserId());
+        String passengerName = (booking.getItems() == null || booking.getItems().isEmpty())
+                ? "Passenger" : booking.getItems().get(0).getPassengerName();
+
+        Map<String, Object> flightInfo = getFlightDetails(booking.getFlightId());
+>>>>>>> develop
         String flightNo = flightInfo != null ? String.valueOf(flightInfo.get("flightNo")) : "Unknown";
         String from = flightInfo != null ? String.valueOf(flightInfo.get("fromAirport")) : "Unknown";
         String to = flightInfo != null ? String.valueOf(flightInfo.get("toAirport")) : "Unknown";
@@ -239,6 +375,7 @@ public class BookingService {
     @Transactional
     public void handlePaymentFailed(Long bookingId, String reason) {
         BookingAggregate booking = bookingRepository.findById(bookingId)
+<<<<<<< HEAD
                 .orElseThrow(() -> new BookingNotFoundException(bookingId));
 
         // Delegate state transition to domain aggregate
@@ -254,6 +391,30 @@ public class BookingService {
 
         // Enrich details for event
         String email = userServiceClient.getUserEmail(booking.getUserId());
+=======
+                .orElseThrow(() -> new RuntimeException("Booking not found with id: " + bookingId));
+
+        if (booking.getStatus() != BookingStatus.HELD && booking.getStatus() != BookingStatus.CONFIRMED) {
+            log.warn("Booking {} status is {}. Cannot cancel on payment failure.", bookingId, booking.getStatus());
+            return;
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        booking.setCancelledAt(LocalDateTime.now());
+        booking = bookingRepository.save(booking);
+
+        // Release Redis seat locks
+        if (booking.getItems() != null) {
+            for (BookingItem item : booking.getItems()) {
+                String redisKey = "seat:" + booking.getFlightId() + ":" + item.getSeatNo();
+                stringRedisTemplate.delete(redisKey);
+                log.debug("Released Redis lock for key: {}", redisKey);
+            }
+        }
+
+        // Enrich details for event
+        String email = getUserEmail(booking.getUserId());
+>>>>>>> develop
         String passengerName = (booking.getItems() == null || booking.getItems().isEmpty())
                 ? "Passenger" : booking.getItems().get(0).getPassengerName();
 
@@ -263,4 +424,33 @@ public class BookingService {
         log.info("Booking cancelled due to payment failure: bookingCode={}, reason={}",
                 booking.getBookingCode(), reason);
     }
+<<<<<<< HEAD
+=======
+
+    private String getUserEmail(Long userId) {
+        try {
+            String userUrl = "http://localhost:8083/api/v1/users/" + userId;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> userInfo = restTemplate.getForObject(userUrl, Map.class);
+            if (userInfo != null && userInfo.containsKey("email")) {
+                return String.valueOf(userInfo.get("email"));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch email for userId={} from user-service: {}", userId, e.getMessage());
+        }
+        return "user" + userId + "@example.com";
+    }
+
+    private Map<String, Object> getFlightDetails(Long flightId) {
+        try {
+            String flightUrl = "http://localhost:8081/api/v1/flights/" + flightId;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> flightInfo = restTemplate.getForObject(flightUrl, Map.class);
+            return flightInfo;
+        } catch (Exception e) {
+            log.error("Failed to fetch flight details for flightId={}: {}", flightId, e.getMessage());
+            return null;
+        }
+    }
+>>>>>>> develop
 }

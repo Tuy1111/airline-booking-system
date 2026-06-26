@@ -1,6 +1,6 @@
 package com.abs.notification.infrastructure.messaging;
 
-import com.abs.notification.application.NotificationService;
+import com.abs.notification.application.port.in.SendEmailUseCase;
 import com.abs.notification.application.dto.SendEmailCommand;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class EmailCommandListener {
 
-    private final NotificationService notificationService;
+    private final SendEmailUseCase notificationService;
 
     @RabbitListener(queues = "${app.notification.rabbit.email-queue}")
     public void onEmail(SendEmailCommand cmd) {

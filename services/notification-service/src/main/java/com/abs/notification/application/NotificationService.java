@@ -2,12 +2,15 @@ package com.abs.notification.application;
 
 import com.abs.notification.application.dto.SendEmailCommand;
 import com.abs.notification.application.dto.SendSmsCommand;
-import com.abs.notification.domain.aggregate.NotificationAggregate;
-import com.abs.notification.domain.aggregate.NotificationTemplateAggregate;
+import com.abs.notification.application.port.in.SendEmailUseCase;
+import com.abs.notification.application.port.in.SendSmsUseCase;
+import com.abs.notification.domain.aggregate.Notification;
+import com.abs.notification.domain.aggregate.NotificationTemplate;
 import com.abs.notification.domain.repository.NotificationRepository;
 import com.abs.notification.domain.repository.NotificationTemplateRepository;
-import com.abs.notification.domain.vo.Channel;
-import com.abs.notification.domain.vo.NotificationStatus;
+import com.abs.notification.domain.enums.Channel;
+import com.abs.notification.domain.enums.NotificationStatus;
+import com.abs.notification.domain.vo.Recipient;
 import com.abs.notification.infrastructure.email.EmailSender;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -22,7 +25,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class NotificationService {
+public class NotificationService implements SendEmailUseCase, SendSmsUseCase {
 
     private final NotificationRepository notificationRepo;
     private final NotificationTemplateRepository templateRepo;
@@ -30,10 +33,11 @@ public class NotificationService {
     private final EmailSender emailSender;
     private final MeterRegistry meterRegistry;
 
+    @Override
     @Transactional
-    public NotificationAggregate sendEmail(SendEmailCommand cmd) {
+    public Notification sendEmail(SendEmailCommand cmd) {
         String locale = cmd.locale() == null ? "vi" : cmd.locale();
-        NotificationTemplateAggregate template = templateRepo
+        NotificationTemplate template = templateRepo
                 .findByCodeAndLocaleAndChannel(cmd.templateCode(), locale, Channel.EMAIL)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Template not found: " + cmd.templateCode() + "/" + locale + "/EMAIL"));
@@ -42,11 +46,10 @@ public class NotificationService {
         String subject = renderer.render(template.getSubject(), vars);
         String body    = renderer.render(template.getBody(), vars);
 
-        NotificationAggregate record = NotificationAggregate.builder()
+        Notification record = Notification.builder()
                 .templateCode(cmd.templateCode())
                 .userId(cmd.userId())
-                .channel(Channel.EMAIL)
-                .recipient(cmd.recipient())
+                .recipient(Recipient.of(Channel.EMAIL, cmd.recipient()))
                 .variables(vars)
                 .status(NotificationStatus.PENDING)
                 .retryCount(0)
@@ -70,10 +73,11 @@ public class NotificationService {
         return record;
     }
 
+    @Override
     @Transactional
-    public NotificationAggregate sendSms(SendSmsCommand cmd) {
+    public Notification sendSms(SendSmsCommand cmd) {
         String locale = cmd.locale() == null ? "vi" : cmd.locale();
-        NotificationTemplateAggregate template = templateRepo
+        NotificationTemplate template = templateRepo
                 .findByCodeAndLocaleAndChannel(cmd.templateCode(), locale, Channel.SMS)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "SMS template not found: " + cmd.templateCode()));
@@ -81,11 +85,10 @@ public class NotificationService {
         Map<String, Object> vars = cmd.variables() == null ? Map.of() : cmd.variables();
         String body = renderer.render(template.getBody(), vars);
 
-        NotificationAggregate record = NotificationAggregate.builder()
+        Notification record = Notification.builder()
                 .templateCode(cmd.templateCode())
                 .userId(cmd.userId())
-                .channel(Channel.SMS)
-                .recipient(cmd.recipient())
+                .recipient(Recipient.of(Channel.SMS, cmd.recipient()))
                 .variables(vars)
                 .status(NotificationStatus.PENDING)
                 .retryCount(0)

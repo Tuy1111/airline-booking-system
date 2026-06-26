@@ -1,6 +1,6 @@
 package com.abs.notification.infrastructure.persistence.entity;
 
-import com.abs.notification.domain.vo.Channel;
+import com.abs.notification.domain.enums.Channel;
 import com.abs.notification.domain.vo.NotificationTemplateId;
 import jakarta.persistence.*;
 import lombok.*;

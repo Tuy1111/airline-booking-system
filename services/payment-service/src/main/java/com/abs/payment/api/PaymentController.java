@@ -1,9 +1,9 @@
 package com.abs.payment.api;
 
-import com.abs.payment.application.PaymentService;
+import com.abs.payment.application.port.in.CreateSePayPaymentUseCase;
 import com.abs.payment.application.dto.CreatePaymentRequest;
 import com.abs.payment.application.dto.PaymentResponse;
-import com.abs.payment.domain.aggregate.PaymentAggregate;
+import com.abs.payment.domain.aggregate.Payment;
 import com.abs.payment.domain.repository.PaymentRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,12 +17,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private final PaymentService service;
+    private final CreateSePayPaymentUseCase service;
     private final PaymentRepository repo;
 
     @PostMapping
     public ResponseEntity<PaymentResponse> create(@Valid @RequestBody CreatePaymentRequest req) {
-        PaymentAggregate p = service.createSePayPayment(req);
+        Payment p = service.createSePayPayment(req);
         return ResponseEntity.ok(PaymentResponse.of(p, service.buildQrUrl(p)));
     }
 

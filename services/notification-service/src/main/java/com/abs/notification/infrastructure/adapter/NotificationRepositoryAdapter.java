@@ -1,8 +1,8 @@
 package com.abs.notification.infrastructure.adapter;
 
-import com.abs.notification.domain.aggregate.NotificationAggregate;
+import com.abs.notification.domain.aggregate.Notification;
 import com.abs.notification.domain.repository.NotificationRepository;
-import com.abs.notification.domain.vo.NotificationStatus;
+import com.abs.notification.domain.enums.NotificationStatus;
 import com.abs.notification.infrastructure.persistence.NotificationJpaRepository;
 import com.abs.notification.infrastructure.persistence.mapper.NotificationPersistenceMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,29 +19,29 @@ public class NotificationRepositoryAdapter implements NotificationRepository {
     private final NotificationJpaRepository repository;
 
     @Override
-    public NotificationAggregate save(NotificationAggregate aggregate) {
+    public Notification save(Notification aggregate) {
         return NotificationPersistenceMapper.toAggregate(
                 repository.save(NotificationPersistenceMapper.toEntity(aggregate)));
     }
 
     @Override
-    public Optional<NotificationAggregate> findById(Long id) {
+    public Optional<Notification> findById(Long id) {
         return repository.findById(id).map(NotificationPersistenceMapper::toAggregate);
     }
 
     @Override
-    public Page<NotificationAggregate> findAll(Pageable pageable) {
+    public Page<Notification> findAll(Pageable pageable) {
         return repository.findAll(pageable).map(NotificationPersistenceMapper::toAggregate);
     }
 
     @Override
-    public Page<NotificationAggregate> findByUserId(Long userId, Pageable pageable) {
+    public Page<Notification> findByUserId(Long userId, Pageable pageable) {
         return repository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
                 .map(NotificationPersistenceMapper::toAggregate);
     }
 
     @Override
-    public List<NotificationAggregate> findByStatus(
+    public List<Notification> findByStatus(
             NotificationStatus status,
             Pageable pageable) {
         return repository.findByStatus(status, pageable).stream()

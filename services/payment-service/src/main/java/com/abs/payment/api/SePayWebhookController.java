@@ -1,6 +1,6 @@
 package com.abs.payment.api;
 
-import com.abs.payment.application.PaymentService;
+import com.abs.payment.application.port.in.HandleSePayWebhookUseCase;
 import com.abs.payment.application.dto.SePayWebhookPayload;
 import com.abs.payment.infrastructure.sepay.SePayProperties;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SePayWebhookController {
 
-    private final PaymentService paymentService;
+    private final HandleSePayWebhookUseCase paymentService;
     private final SePayProperties props;
 
     @PostMapping

@@ -34,7 +34,11 @@ public class OutboxRelay {
     @Scheduled(fixedDelayString = "${app.outbox.poll-interval-ms:2000}")
     @Transactional
     public void relay() {
+<<<<<<< HEAD
+        List<OutboxEvent> batch = outboxRepo.lockPending(
+=======
         List<OutboxEvent> batch = outboxRepo.findByStatusOrderByCreatedAtAsc(
+>>>>>>> develop
                 OutboxStatus.PENDING, PageRequest.of(0, batchSize));
         if (batch.isEmpty()) return;
 

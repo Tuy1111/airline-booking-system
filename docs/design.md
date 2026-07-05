@@ -732,3 +732,9 @@ INSERT INTO seat_inventory(flight_id, total, available) VALUES (1,180,180),(2,18
 4. **Refund policy:** trước 24h được full refund, trong 24h chỉ 50%?
 5. **Multi-leg flight:** có hỗ trợ transit (HAN→SGN→BKK) không? → MVP đề xuất KHÔNG
 6. **Loyalty / voucher:** ngoài scope MVP
+
+---
+
+## 🔗 Tài liệu Đặc tả API bổ sung
+Xem đặc tả chi tiết của 21 API Endpoints (P0, P1, P2) của flight-search-service (Cập nhật ngày 05/07/2026) tại: **[api-specification.md](file:///c:/Users/KhaiNH/Desktop/MSS301/airline-booking-system/docs/api-specification.md)**
+

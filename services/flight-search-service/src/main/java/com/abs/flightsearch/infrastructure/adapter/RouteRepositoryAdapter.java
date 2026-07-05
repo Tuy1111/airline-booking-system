@@ -9,6 +9,7 @@ import com.abs.flightsearch.infrastructure.persistence.mapper.RoutePersistenceMa
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -36,5 +37,12 @@ public class RouteRepositoryAdapter implements RouteRepository {
     public Optional<RouteAggregate> findByAirports(String from, String to) {
         return repository.findByFromAirport_IataCodeAndToAirport_IataCode(from, to)
                 .map(RoutePersistenceMapper::toAggregate);
+    }
+
+    @Override
+    public List<RouteAggregate> findAll() {
+        return repository.findAll().stream()
+                .map(RoutePersistenceMapper::toAggregate)
+                .toList();
     }
 }

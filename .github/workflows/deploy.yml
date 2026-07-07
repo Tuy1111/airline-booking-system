@@ -26,6 +26,7 @@ jobs:
 
       - name: Create deployment archive
         run: |
+          ARCHIVE="$RUNNER_TEMP/deploy-package.tar.gz"
           tar \
             --exclude='.git' \
             --exclude='.github' \
@@ -36,7 +37,8 @@ jobs:
             --exclude='**/.env' \
             --exclude='**/*.env' \
             --exclude='**/*.log' \
-            -czf deploy-package.tar.gz .
+            -czf "$ARCHIVE" .
+          cp "$ARCHIVE" deploy-package.tar.gz
 
       - name: Upload source archive to VPS
         uses: appleboy/scp-action@v0.1.7

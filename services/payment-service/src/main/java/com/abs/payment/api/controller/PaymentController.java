@@ -27,21 +27,21 @@ public class PaymentController {
     }
 
     @GetMapping(ApiPath.BY_ID)
-    public ResponseEntity<PaymentResponse> getOne(@PathVariable Long id) {
+    public ResponseEntity<PaymentResponse> getOne(@PathVariable("id") Long id) {
         return repo.findById(id)
                 .map(p -> ResponseEntity.ok(PaymentResponse.of(p, service.buildQrUrl(p))))
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping(ApiPath.BY_CODE)
-    public ResponseEntity<PaymentResponse> getByCode(@PathVariable String code) {
+    public ResponseEntity<PaymentResponse> getByCode(@PathVariable("code") String code) {
         return repo.findByPaymentCode(code)
                 .map(p -> ResponseEntity.ok(PaymentResponse.of(p, service.buildQrUrl(p))))
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping(ApiPath.BY_BOOKING)
-    public List<PaymentResponse> byBooking(@PathVariable Long bookingId) {
+    public List<PaymentResponse> byBooking(@PathVariable("bookingId") Long bookingId) {
         return repo.findByBookingId(bookingId).stream()
                 .map(p -> PaymentResponse.of(p, service.buildQrUrl(p)))
                 .toList();

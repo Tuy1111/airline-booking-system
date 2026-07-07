@@ -62,7 +62,7 @@ public class UserController {
      * downstream demos work without a seeded DB.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getUserById(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getUserById(@PathVariable("id") Long id) {
         Map<String, Object> response = new HashMap<>();
         Optional<UserView> user = getUserUseCase.findById(id);
         if (user.isPresent()) {
@@ -81,7 +81,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/profile")
-    public UserView getProfile(@PathVariable Long id) {
+    public UserView getProfile(@PathVariable("id") Long id) {
         return getUserUseCase.findById(id).orElseThrow(() -> new UserNotFoundException(id));
     }
 
@@ -97,44 +97,44 @@ public class UserController {
     }
 
     @PutMapping("/{id}/profile")
-    public UserView updateProfile(@PathVariable Long id, @RequestBody UpdateProfileRequest request) {
+    public UserView updateProfile(@PathVariable("id") Long id, @RequestBody UpdateProfileRequest request) {
         return updatePassengerProfileUseCase.handle(new UpdatePassengerProfileCommand(
                 id, request.fullName(), request.phone(), request.dateOfBirth(),
                 request.gender(), request.nationality()));
     }
 
     @PostMapping("/{id}/miles/earn")
-    public UserView earnMiles(@PathVariable Long id, @RequestBody MilesRequest request) {
+    public UserView earnMiles(@PathVariable("id") Long id, @RequestBody MilesRequest request) {
         return manageFrequentFlyerUseCase.earnMiles(
                 new EarnMilesCommand(id, request.miles(), request.reason()));
     }
 
     @PostMapping("/{id}/miles/redeem")
-    public UserView redeemMiles(@PathVariable Long id, @RequestBody MilesRequest request) {
+    public UserView redeemMiles(@PathVariable("id") Long id, @RequestBody MilesRequest request) {
         return manageFrequentFlyerUseCase.redeemMiles(
                 new RedeemMilesCommand(id, request.miles(), request.reason()));
     }
 
     @PostMapping("/{id}/passport")
-    public UserView submitPassport(@PathVariable Long id, @RequestBody SubmitPassportRequest request) {
+    public UserView submitPassport(@PathVariable("id") Long id, @RequestBody SubmitPassportRequest request) {
         return verifyPassportUseCase.submitPassport(new SubmitPassportCommand(
                 id, request.passportNumber(), request.issuingCountry(), request.expiryDate()));
     }
 
     @PostMapping("/{id}/passport/verify")
-    public UserView verifyPassport(@PathVariable Long id) {
+    public UserView verifyPassport(@PathVariable("id") Long id) {
         return verifyPassportUseCase.approve(id);
     }
 
     @PostMapping("/{id}/passport/reject")
-    public UserView rejectPassport(@PathVariable Long id) {
+    public UserView rejectPassport(@PathVariable("id") Long id) {
         return verifyPassportUseCase.reject(id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAccount(@PathVariable Long id,
-                              @RequestParam(required = false) String reason) {
+    public void deleteAccount(@PathVariable("id") Long id,
+                              @RequestParam(name = "reason", required = false) String reason) {
         deleteUserAccountUseCase.handle(new DeleteAccountCommand(id, reason));
     }
 }

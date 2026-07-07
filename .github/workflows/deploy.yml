@@ -33,7 +33,10 @@ jobs:
           script: |
             cd "${{ secrets.DEPLOY_PATH }}"
             git fetch origin develop
-            git pull --ff-only origin develop
+            # Ép cứng về commit mới nhất, không dùng pull --ff-only (fail nếu working tree trên VPS bẩn).
+            # .env an toàn vì đã gitignore (clean không đụng file ignored).
+            git reset --hard origin/develop
+            git clean -fd
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
             docker image prune -f
             docker compose -f docker-compose.prod.yml ps

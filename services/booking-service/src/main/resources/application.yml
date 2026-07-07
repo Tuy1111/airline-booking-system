@@ -5,7 +5,8 @@ spring:
   application:
     name: booking-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/booking_db?options=-c%20timezone=Asia/Ho_Chi_Minh
+    # Local -> Postgres trên VPS (host 5555). Docker override qua SPRING_DATASOURCE_URL -> postgres:5432
+    url: jdbc:postgresql://143.198.213.125:5555/booking_db?options=-c%20timezone=Asia/Ho_Chi_Minh
     username: abs
     password: abs123
     driver-class-name: org.postgresql.Driver
@@ -26,7 +27,8 @@ spring:
       base-path: /api/v1
   data:
     redis:
-      host: localhost
+      # Local -> Redis trên VPS. Docker override qua SPRING_DATA_REDIS_HOST -> redis
+      host: 143.198.213.125
       port: 6379
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}

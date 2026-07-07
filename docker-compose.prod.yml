@@ -35,7 +35,9 @@ services:
       POSTGRES_USER: ${DB_USER:-abs}
       POSTGRES_PASSWORD: ${DB_PASS:-abs123}
       POSTGRES_DB: postgres
-    ports: ["5432:5432"]
+    # Host 5555 -> container 5432 (tránh đụng Postgres native/cổng khác trên VPS).
+    # Nội bộ Docker các service vẫn nối qua postgres:5432, KHÔNG đổi.
+    ports: ["5555:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       # Tạo 5 DB lần đầu. Dùng .sql (không phải .sh) để tránh lỗi CRLF trên Windows checkout.

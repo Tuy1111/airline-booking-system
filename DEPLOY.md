@@ -45,7 +45,7 @@ docker compose -f docker-compose.prod.yml logs -f booking-service
 | flight / booking   | `8081` / `8082`    | gọi trực tiếp khi debug                   |
 | user / payment     | `8083` / `8084`    |                                          |
 | notification       | `8085`             |                                          |
-| Postgres           | `5432`             | 5 DB tạo tự động lần đầu                  |
+| Postgres           | `5555`             | host 5555 -> container 5432; 5 DB tạo tự động |
 | Redis / Kafka      | `6379` / `9092`    |                                          |
 | RabbitMQ UI        | `15672`            | guest/guest                              |
 | MailHog UI         | `8025`             | xem email đã gửi                         |

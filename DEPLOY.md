@@ -86,6 +86,10 @@ Workflow `.github/workflows/deploy.yml` cần các secrets:
   (hoặc dùng password: `VPS_PASSWORD` / `SSH_PASSWORD`)
 - `VPS_PORT` (tuỳ chọn, mặc định `22`)
 
+Workflow deploy checkout code trên GitHub runner, nén source rồi SCP sang VPS trước khi chạy
+`docker compose`. VPS không cần tự `git fetch` từ GitHub, nên vẫn deploy được khi outbound
+`github.com:443` bị chặn.
+
 ## Cơ chế (vì sao không sửa source)
 
 Source hardcode `localhost` cho DB/Redis/Eureka. Compose **override bằng biến môi

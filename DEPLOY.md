@@ -74,6 +74,17 @@ docker compose -f docker-compose.prod.yml down             # dừng (giữ data)
 docker compose -f docker-compose.prod.yml down -v          # xóa cả DB volume
 ```
 
+## 7. GitHub Actions Deploy (tuỳ chọn)
+
+Workflow `.github/workflows/deploy.yml` cần các secrets:
+
+- `VPS_HOST`
+- `VPS_USER`
+- `DEPLOY_PATH`
+- Một trong các secret key: `VPS_SSH_KEY` / `VPS_PRIVATE_KEY` / `SSH_PRIVATE_KEY`
+  (hoặc dùng password: `VPS_PASSWORD` / `SSH_PASSWORD`)
+- `VPS_PORT` (tuỳ chọn, mặc định `22`)
+
 ## Cơ chế (vì sao không sửa source)
 
 Source hardcode `localhost` cho DB/Redis/Eureka. Compose **override bằng biến môi

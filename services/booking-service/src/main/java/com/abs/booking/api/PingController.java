@@ -1,6 +1,7 @@
 package com.abs.booking.api;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,6 +16,10 @@ public class PingController {
 
     private final RestTemplate restTemplate;
 
+    // Cùng property với FlightSearchClient: local mặc định localhost:8081, Docker override qua env.
+    @Value("${app.services.flight-search.url:http://localhost:8081}")
+    private String flightSearchUrl;
+
     @GetMapping("/ping")
     public Map<String, Object> ping() {
         return Map.of("status", "ok",
@@ -27,7 +32,7 @@ public class PingController {
     public Map<String, Object> pingFlight() {
         try {
             Map<?, ?> resp = restTemplate.getForObject(
-                    "http://localhost:8081/api/v1/flights/ping", Map.class);
+                    flightSearchUrl + "/api/v1/flights/ping", Map.class);
             return Map.of("status", resp.get("status"), "resp", resp);
         } catch (Exception e) {
             return Map.of("status", "error",

@@ -195,6 +195,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       KAFKA_BOOTSTRAP: kafka:29092
+      # booking gọi trực tiếp sang service khác -> trỏ vào tên container (không phải localhost)
+      APP_SERVICES_USER_URL: http://user-service:8083
+      APP_SERVICES_FLIGHT_SEARCH_URL: http://flight-search-service:8081
     ports: ["8082:8082"]
     depends_on:
       postgres:

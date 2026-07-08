@@ -1,6 +1,6 @@
 package com.abs.payment.application.port.in;
 
-import com.abs.payment.application.dto.CreatePaymentRequest;
+import com.abs.payment.api.dto.CreatePaymentRequest;
 import com.abs.payment.domain.aggregate.Payment;
 
 /**

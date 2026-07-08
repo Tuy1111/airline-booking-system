@@ -18,6 +18,7 @@ public final class NotificationPersistenceMapper {
                 .status(entity.getStatus())
                 .retryCount(entity.getRetryCount())
                 .errorMessage(entity.getErrorMessage())
+                .dedupKey(entity.getDedupKey())
                 .createdAt(entity.getCreatedAt())
                 .sentAt(entity.getSentAt())
                 .build();
@@ -34,6 +35,7 @@ public final class NotificationPersistenceMapper {
                 .status(aggregate.getStatus())
                 .retryCount(aggregate.getRetryCount())
                 .errorMessage(aggregate.getErrorMessage())
+                .dedupKey(aggregate.getDedupKey())
                 .createdAt(aggregate.getCreatedAt())
                 .sentAt(aggregate.getSentAt())
                 .build();

@@ -1,0 +1,12 @@
+# Giảm build context -> build nhanh, tránh lộ secrets
+**/target/
+**/build/
+.git/
+.idea/
+.mvn/wrapper/maven-wrapper.jar
+**/*.iml
+**/.env
+**/*.env
+!**/.env.example
+docs/
+**/*.md

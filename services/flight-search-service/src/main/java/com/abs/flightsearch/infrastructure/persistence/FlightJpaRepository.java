@@ -28,4 +28,15 @@ public interface FlightJpaRepository extends JpaRepository<FlightEntity, Long> {
                                      @Param("start") LocalDateTime start,
                                      @Param("end") LocalDateTime end,
                                      @Param("status") FlightStatus status);
+
+    @Query("""
+            SELECT f FROM FlightEntity f
+            WHERE f.departureTime BETWEEN :from AND :to
+              AND f.status IN (com.abs.flightsearch.domain.vo.FlightStatus.SCHEDULED, com.abs.flightsearch.domain.vo.FlightStatus.DELAYED)
+            ORDER BY f.departureTime
+            """)
+    List<FlightEntity> findUpcoming(@Param("from") LocalDateTime from,
+                                    @Param("to") LocalDateTime to);
+
+    List<FlightEntity> findByStatus(FlightStatus status);
 }

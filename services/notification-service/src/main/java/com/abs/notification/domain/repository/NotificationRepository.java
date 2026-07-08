@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface NotificationRepository {
     Notification save(Notification aggregate);
     Optional<Notification> findById(Long id);
+    Optional<Notification> findByDedupKey(String dedupKey);
     Page<Notification> findAll(Pageable pageable);
     Page<Notification> findByUserId(Long userId, Pageable pageable);
     List<Notification> findByStatus(NotificationStatus status, Pageable pageable);

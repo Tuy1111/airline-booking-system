@@ -6,7 +6,6 @@ import com.abs.payment.infrastructure.persistence.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -37,8 +36,7 @@ public class OutboxRelay {
     @Scheduled(fixedDelayString = "${app.outbox.poll-interval-ms:2000}")
     @Transactional
     public void relay() {
-        List<OutboxEvent> batch = outboxRepo.lockPending(
-                OutboxStatus.PENDING, PageRequest.of(0, batchSize));
+        List<OutboxEvent> batch = outboxRepo.lockPending(OutboxStatus.PENDING.name(), batchSize);
         if (batch.isEmpty()) return;
 
         for (OutboxEvent evt : batch) {

@@ -23,6 +23,7 @@ public class Notification {
     private NotificationStatus status;
     private Integer retryCount;
     private String errorMessage;
+    private String dedupKey;
     private LocalDateTime createdAt;
     private LocalDateTime sentAt;
 

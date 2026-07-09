@@ -54,7 +54,7 @@ services:
     container_name: abs-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
-    ports: ["6379:6379"]
+    # Internal only. Do not publish Redis on the VPS host.
     volumes:
       - redisdata:/data
     healthcheck:

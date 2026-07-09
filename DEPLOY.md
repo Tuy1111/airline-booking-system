@@ -47,7 +47,8 @@ docker compose -f docker-compose.prod.yml logs -f booking-service
 | user / payment     | `8083` / `8084`    |                                          |
 | notification       | `8085`             |                                          |
 | Postgres           | `5555`             | host 5555 -> container 5432; 5 DB tạo tự động |
-| Redis / Kafka      | `6379` / `9092`    |                                          |
+| Redis              | nội bộ Docker      | không publish ra host/VPS               |
+| Kafka              | `9092`             | chỉ mở nếu cần debug hoặc client ngoài   |
 | RabbitMQ UI        | `15672`            | guest/guest                              |
 | MailHog UI         | `8025`             | xem email đã gửi                         |
 

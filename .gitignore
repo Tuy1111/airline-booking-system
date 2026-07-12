@@ -44,3 +44,4 @@ build/
 .DS_Store
 /.idea/
 services/user-service/CLAUDE.md
+/node_modules/

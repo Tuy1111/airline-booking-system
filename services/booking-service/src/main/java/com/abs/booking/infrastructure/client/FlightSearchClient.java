@@ -39,4 +39,37 @@ public class FlightSearchClient {
             return null;
         }
     }
+
+    public boolean holdSeat(Long flightId, String seatNo) {
+        try {
+            String url = baseUrl + "/api/v1/flights/" + flightId + "/seats/" + seatNo + "/hold";
+            restTemplate.put(url, null);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to hold seat for flightId={}, seatNo={}: {}", flightId, seatNo, e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean bookSeat(Long flightId, String seatNo) {
+        try {
+            String url = baseUrl + "/api/v1/flights/" + flightId + "/seats/" + seatNo + "/book";
+            restTemplate.put(url, null);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to book seat for flightId={}, seatNo={}: {}", flightId, seatNo, e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean releaseSeat(Long flightId, String seatNo) {
+        try {
+            String url = baseUrl + "/api/v1/flights/" + flightId + "/seats/" + seatNo + "/release";
+            restTemplate.put(url, null);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to release seat for flightId={}, seatNo={}: {}", flightId, seatNo, e.getMessage());
+            return false;
+        }
+    }
 }

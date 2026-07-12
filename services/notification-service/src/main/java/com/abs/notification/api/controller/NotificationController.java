@@ -22,14 +22,14 @@ public class NotificationController {
     private final NotificationRepository repo;
 
     @GetMapping
-    public Page<NotificationResponse> list(@RequestParam(defaultValue = "0") int page,
-                                           @RequestParam(defaultValue = "20") int size) {
+    public Page<NotificationResponse> list(@RequestParam(name = "page", defaultValue = "0") int page,
+                                           @RequestParam(name = "size", defaultValue = "20") int size) {
         return repo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))
                 .map(NotificationResponse::of);
     }
 
     @GetMapping(ApiPath.BY_ID)
-    public ResponseEntity<NotificationResponse> getOne(@PathVariable Long id) {
+    public ResponseEntity<NotificationResponse> getOne(@PathVariable("id") Long id) {
         return repo.findById(id)
                 .map(NotificationResponse::of)
                 .map(ResponseEntity::ok)
@@ -37,9 +37,9 @@ public class NotificationController {
     }
 
     @GetMapping(ApiPath.BY_USER)
-    public Page<NotificationResponse> byUser(@PathVariable Long userId,
-                                             @RequestParam(defaultValue = "0") int page,
-                                             @RequestParam(defaultValue = "20") int size) {
+    public Page<NotificationResponse> byUser(@PathVariable("userId") Long userId,
+                                             @RequestParam(name = "page", defaultValue = "0") int page,
+                                             @RequestParam(name = "size", defaultValue = "20") int size) {
         return repo.findByUserId(userId, PageRequest.of(page, size))
                 .map(NotificationResponse::of);
     }

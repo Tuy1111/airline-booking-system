@@ -110,6 +110,7 @@ public final class UserPersistenceMapper {
     private static PassengerEntity toPassengerEntity(PassengerProfile profile, UserEntity owner) {
         Passport passport = profile.getPassport();
         return PassengerEntity.builder()
+                .userId(owner.getId())
                 .user(owner) // @MapsId derives user_id from the owning user
                 .fullName(profile.getFullName().value())
                 .phone(profile.getPhone() == null ? null : profile.getPhone().value())

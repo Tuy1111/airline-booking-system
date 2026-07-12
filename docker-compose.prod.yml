@@ -1,5 +1,5 @@
 # ==============================================================================
-# Full-stack deploy cho VPS: core infra + 7 app (registry, gateway, 5 service).
+# Full-stack deploy cho VPS: core infra + backend services + frontend.
 # Build & chạy tất cả trên VPS:
 #     cp .env.example .env      # điền secrets (JWT, SEPAY...) 1 lần
 #     docker compose -f docker-compose.prod.yml up -d --build
@@ -54,7 +54,7 @@ services:
     container_name: abs-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
-    ports: ["6379:6379"]
+    # Internal only. Do not publish Redis on the VPS host.
     volumes:
       - redisdata:/data
     healthcheck:
@@ -120,6 +120,35 @@ services:
     networks: [abs]
 
   # -------------------------------------------------------------------- APPS ---
+  frontend:
+    restart: unless-stopped
+    container_name: abs-frontend
+    build:
+      context: ./frontend/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+      flight-search-service:
+        condition: service_started
+      booking-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [abs]
+
   service-registry:
     <<: *app-build
     container_name: abs-service-registry
@@ -195,6 +224,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       KAFKA_BOOTSTRAP: kafka:29092
+      # booking gọi trực tiếp sang service khác -> trỏ vào tên container (không phải localhost)
+      APP_SERVICES_USER_URL: http://user-service:8083
+      APP_SERVICES_FLIGHT_SEARCH_URL: http://flight-search-service:8081
     ports: ["8082:8082"]
     depends_on:
       postgres:

@@ -93,6 +93,13 @@ public class BookingService {
             throw new SeatAlreadyHeldException(req.flightId(), req.seatNo());
         }
 
+        // Call flight-search-client to hold seat in database
+        boolean holdSuccess = flightSearchClient.holdSeat(req.flightId(), req.seatNo());
+        if (!holdSuccess) {
+            seatLockService.releaseLock(req.flightId(), req.seatNo());
+            throw new SeatNotAvailableException(req.flightId(), req.seatNo());
+        }
+
         // Build using aggregate factory and save booking
         BookingAggregate booking = BookingAggregate.createHold(bookingCode, userId, req.flightId(), price, holdTtlMinutes);
 
@@ -152,11 +159,12 @@ public class BookingService {
         // Delegate state transition to domain aggregate
         booking.cancel();
 
-        // Release Redis seat locks
+        // Release Redis seat locks and flight search seats
         final Long flightId = booking.getFlightId();
-        booking.getSeatNumbers().forEach(seatNo ->
-                seatLockService.releaseLock(flightId, seatNo)
-        );
+        booking.getSeatNumbers().forEach(seatNo -> {
+            seatLockService.releaseLock(flightId, seatNo);
+            flightSearchClient.releaseSeat(flightId, seatNo);
+        });
 
         booking = bookingRepository.save(booking);
 
@@ -188,11 +196,12 @@ public class BookingService {
             // Delegate state transition to domain aggregate
             booking.expire();
 
-            // Release Redis seat locks
+            // Release Redis seat locks and flight search seats
             final Long flightId = booking.getFlightId();
-            booking.getSeatNumbers().forEach(seatNo ->
-                    seatLockService.releaseLock(flightId, seatNo)
-            );
+            booking.getSeatNumbers().forEach(seatNo -> {
+                seatLockService.releaseLock(flightId, seatNo);
+                flightSearchClient.releaseSeat(flightId, seatNo);
+            });
 
             bookingRepository.save(booking);
             eventPublisher.publishExpired(booking);
@@ -210,11 +219,16 @@ public class BookingService {
         // Delegate state transition to domain aggregate
         booking.confirm(paymentId);
 
-        // Release Redis seat locks
+        // Release Redis seat locks and book seats in flight search
         final Long flightId = booking.getFlightId();
-        booking.getSeatNumbers().forEach(seatNo ->
-                seatLockService.releaseLock(flightId, seatNo)
-        );
+        booking.getSeatNumbers().forEach(seatNo -> {
+            seatLockService.releaseLock(flightId, seatNo);
+            boolean bookSuccess = flightSearchClient.bookSeat(flightId, seatNo);
+            if (!bookSuccess) {
+                log.error("Failed to book seat {} for flightId {} in flight-search-service during confirmation", seatNo, flightId);
+                throw new IllegalStateException("Không thể xác nhận ghế " + seatNo + " trên hệ thống chuyến bay");
+            }
+        });
 
         booking = bookingRepository.save(booking);
 
@@ -244,11 +258,12 @@ public class BookingService {
         // Delegate state transition to domain aggregate
         booking.cancel();
 
-        // Release Redis seat locks
+        // Release Redis seat locks and flight search seats
         final Long flightId = booking.getFlightId();
-        booking.getSeatNumbers().forEach(seatNo ->
-                seatLockService.releaseLock(flightId, seatNo)
-        );
+        booking.getSeatNumbers().forEach(seatNo -> {
+            seatLockService.releaseLock(flightId, seatNo);
+            flightSearchClient.releaseSeat(flightId, seatNo);
+        });
 
         booking = bookingRepository.save(booking);
 

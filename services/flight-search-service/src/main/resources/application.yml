@@ -5,9 +5,10 @@ spring:
   application:
     name: flight-search-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/flight_db
-    username: postgres
-    password: 123456
+    # Local -> Postgres trên VPS (host 5555). Docker override qua SPRING_DATASOURCE_URL -> postgres:5432
+    url: jdbc:postgresql://143.198.213.125:5555/flight_db
+    username: ${DB_USER:abs}
+    password: ${DB_PASS:abs123}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -36,6 +37,7 @@ management:
   tracing:
     sampling:
       probability: 1.0
+    enabled: ${TRACING_ENABLED:false}
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

@@ -5,9 +5,10 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/notify_db
+    # Default -> Postgres trên VPS (host 5555) khi chạy local. Docker set DB_HOST=postgres/DB_PORT=5432.
+    url: jdbc:postgresql://${DB_HOST:143.198.213.125}:${DB_PORT:5555}/notify_db
     username: ${DB_USER:abs}
-    password: ${DB_PASS}
+    password: ${DB_PASS:abs123}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -21,9 +22,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  mvc:
-    pathmatch:
-      base-path: /api/v1
 
   # SMTP -> MailHog in dev (no auth)
   mail:
@@ -47,7 +45,7 @@ spring:
           max-attempts: 3
           initial-interval: 1s
 
-  # Kafka event consumer (booking.confirmed, payment.failed, ...)
+  # Kafka event consumer (booking.confirmed, booking.cancelled)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
     consumer:
@@ -67,7 +65,6 @@ app:
     kafka:
       booking-confirmed-topic: booking.confirmed
       booking-cancelled-topic: booking.cancelled
-      payment-failed-topic: payment.failed
 
 management:
   endpoints:
@@ -85,6 +82,7 @@ management:
   tracing:
     sampling:
       probability: 1.0
+    enabled: ${TRACING_ENABLED:false}
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}

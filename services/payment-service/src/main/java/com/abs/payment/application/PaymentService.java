@@ -1,10 +1,11 @@
 package com.abs.payment.application;
 
-import com.abs.payment.application.dto.CreatePaymentRequest;
+import com.abs.payment.api.dto.CreatePaymentRequest;
+import com.abs.payment.api.dto.SePayWebhookPayload;
 import com.abs.payment.application.dto.PaymentCompletedEvent;
 import com.abs.payment.application.dto.PaymentFailedEvent;
-import com.abs.payment.application.dto.SePayWebhookPayload;
 import com.abs.payment.application.port.in.CreateSePayPaymentUseCase;
+import com.abs.payment.application.port.in.ExpirePendingPaymentsUseCase;
 import com.abs.payment.application.port.in.HandleSePayWebhookUseCase;
 import com.abs.payment.domain.aggregate.Payment;
 import com.abs.payment.domain.aggregate.Transaction;
@@ -31,7 +32,8 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWebhookUseCase {
+public class PaymentService
+        implements CreateSePayPaymentUseCase, HandleSePayWebhookUseCase, ExpirePendingPaymentsUseCase {
 
     private static final Pattern CODE_IN_CONTENT =
             Pattern.compile("(ABS\\w{4,})", Pattern.CASE_INSENSITIVE);
@@ -119,8 +121,12 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
             return false;
         }
 
-        if (payment.getStatus() == PaymentStatus.SUCCESS) {
-            log.info("SePay webhook: payment {} already SUCCESS, ignoring", payment.getPaymentCode());
+        // Idempotency: trạng thái cuối (SUCCESS/FAILED) không xử lý lại — tránh
+        // lật FAILED -> SUCCESS hoặc publish trùng event khi SePay retry.
+        if (payment.getStatus().isTerminal()) {
+            log.info("SePay webhook: payment {} already {}, ignoring",
+                    payment.getPaymentCode(), payment.getStatus());
+            counter("webhook.already_terminal").increment();
             return false;
         }
 
@@ -156,6 +162,40 @@ public class PaymentService implements CreateSePayPaymentUseCase, HandleSePayWeb
         log.info("Payment SUCCESS: code={} ref={}",
                 payment.getPaymentCode(), payment.getReferenceCode());
         return true;
+    }
+
+    /**
+     * Đánh FAILED các payment PENDING đã quá hạn và phát {@code payment.failed}
+     * (qua outbox) để booking-service nhả ghế. Gọi định kỳ bởi scheduler.
+     */
+    @Override
+    @Transactional
+    public int expirePendingPayments() {
+        LocalDateTime now = LocalDateTime.now();
+        String reason = "Payment expired - no transfer received";
+        var expired = paymentRepo.findExpiredPending(now);
+        int count = 0;
+        for (Payment payment : expired) {
+            // Conditional update PENDING → FAILED. Nếu trong lúc scan có webhook
+            // đánh SUCCESS (hoặc instance khác đã xử lý), update trả về false →
+            // KHÔNG ghi đè state và KHÔNG publish payment.failed.
+            if (!paymentRepo.markExpiredIfPending(payment.getId(), reason, now)) {
+                log.debug("Skip expiry for payment {}: no longer PENDING (won by webhook/other scan)",
+                        payment.getPaymentCode());
+                continue;
+            }
+
+            events.publishFailed(new PaymentFailedEvent(
+                    payment.getId(), payment.getPaymentCode(),
+                    payment.getBookingId(), payment.getUserId(),
+                    payment.getTotal().amount(), reason
+            ));
+            counter("expired").increment();
+            log.info("Payment EXPIRED → FAILED: code={} bookingId={}",
+                    payment.getPaymentCode(), payment.getBookingId());
+            count++;
+        }
+        return count;
     }
 
     private boolean markFailed(Payment payment, SePayWebhookPayload p, String reason) {

@@ -1,28 +1,26 @@
 package com.abs.payment.infrastructure.persistence;
 
 import com.abs.payment.infrastructure.persistence.outbox.OutboxEvent;
-import com.abs.payment.infrastructure.persistence.outbox.OutboxStatus;
-import jakarta.persistence.LockModeType;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> {
 
-    List<OutboxEvent> findByStatusOrderByCreatedAtAsc(OutboxStatus status, Pageable pageable);
-
-    /** SELECT ... FOR UPDATE SKIP LOCKED — cho phép nhiều instance relay chạy song song. */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @QueryHints(@jakarta.persistence.QueryHint(name = "jakarta.persistence.lock.timeout", value = "0"))
-    @Query("""
-           SELECT e FROM OutboxEvent e
-            WHERE e.status = :status
-            ORDER BY e.createdAt ASC
-           """)
-    List<OutboxEvent> lockPending(@Param("status") OutboxStatus status, Pageable pageable);
+    /**
+     * Lấy 1 batch event PENDING với {@code FOR UPDATE SKIP LOCKED} — nhiều instance
+     * relay có thể chạy song song mà không tranh nhau cùng 1 row (instance khác bỏ
+     * qua row đã bị khoá thay vì chờ/đổ lỗi). Native query vì JPQL không hỗ trợ
+     * SKIP LOCKED. {@code status} truyền vào dạng String (cột lưu enum name).
+     */
+    @Query(value = """
+           SELECT * FROM outbox_event
+            WHERE status = :status
+            ORDER BY created_at ASC
+            LIMIT :limit
+            FOR UPDATE SKIP LOCKED
+           """, nativeQuery = true)
+    List<OutboxEvent> lockPending(@Param("status") String status, @Param("limit") int limit);
 }

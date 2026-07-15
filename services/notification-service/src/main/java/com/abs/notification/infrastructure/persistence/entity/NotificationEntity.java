@@ -46,6 +46,10 @@ public class NotificationEntity {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    /** Khoá chống trùng cho consumer bất đồng bộ (vd "BOOKING_CONFIRMED:ABS123"). UNIQUE khi khác null. */
+    @Column(name = "dedup_key", length = 150)
+    private String dedupKey;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 

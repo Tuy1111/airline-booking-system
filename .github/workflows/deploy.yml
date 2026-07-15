@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create deployment archive
+        run: |
+          ARCHIVE="$RUNNER_TEMP/deploy-package.tar.gz"
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='**/target' \
+            --exclude='**/build' \
+            --exclude='frontend/frontend/node_modules' \
+            --exclude='frontend/frontend/dist' \
+            --exclude='**/.env' \
+            --exclude='**/*.env' \
+            --exclude='**/*.log' \
+            -czf "$ARCHIVE" .
+          cp "$ARCHIVE" deploy-package.tar.gz
+
+      - name: Upload source archive to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY || secrets.VPS_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.VPS_PASSWORD || secrets.SSH_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: deploy-package.tar.gz
+          target: /tmp/abs-deploy-${{ github.run_id }}
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY || secrets.VPS_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.VPS_PASSWORD || secrets.SSH_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -eu
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            RELEASE_DIR="/tmp/abs-deploy-${{ github.run_id }}"
+
+            mkdir -p "$DEPLOY_PATH"
+            find "$DEPLOY_PATH" -mindepth 1 -maxdepth 1 \
+              ! -name ".env" \
+              ! -name ".env.*" \
+              -exec rm -rf {} +
+
+            tar -xzf "$RELEASE_DIR/deploy-package.tar.gz" -C "$DEPLOY_PATH"
+            rm -rf "$RELEASE_DIR"
+
+            cd "$DEPLOY_PATH"
+            if [ ! -f .env ] && [ -f .env.example ]; then
+              cp .env.example .env
+            fi
+
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            docker image prune -f
+            docker compose -f docker-compose.prod.yml ps

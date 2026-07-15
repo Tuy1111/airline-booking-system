@@ -33,9 +33,31 @@ public class NotificationService implements SendEmailUseCase, SendSmsUseCase {
     private final EmailSender emailSender;
     private final MeterRegistry meterRegistry;
 
+    /**
+     * Gửi email theo template.
+     *
+     * <p>Lưu ý thiết kế:
+     * <ul>
+     *   <li><b>Không</b> bọc cả method trong 1 transaction: việc gọi SMTP (I/O mạng)
+     *       không được giữ DB connection, và bản ghi audit FAILED phải tồn tại kể cả
+     *       khi gửi lỗi (mỗi {@code save} là một transaction riêng).</li>
+     *   <li><b>Idempotency:</b> nếu {@code dedupKey} đã xử lý trước đó thì trả về bản
+     *       ghi cũ, không gửi lại — tránh email trùng khi Kafka/Rabbit redelivery.</li>
+     *   <li>Lỗi gửi được nuốt (log + đánh FAILED) thay vì ném ra, để consumer bất
+     *       đồng bộ không retry vô hạn rồi gửi trùng.</li>
+     * </ul>
+     */
     @Override
-    @Transactional
     public Notification sendEmail(SendEmailCommand cmd) {
+        if (cmd.dedupKey() != null) {
+            var existing = notificationRepo.findByDedupKey(cmd.dedupKey());
+            if (existing.isPresent()) {
+                log.info("Duplicate event skipped: dedupKey={}", cmd.dedupKey());
+                counter("deduped", "email").increment();
+                return existing.get();
+            }
+        }
+
         String locale = cmd.locale() == null ? "vi" : cmd.locale();
         NotificationTemplate template = templateRepo
                 .findByCodeAndLocaleAndChannel(cmd.templateCode(), locale, Channel.EMAIL)
@@ -53,24 +75,22 @@ public class NotificationService implements SendEmailUseCase, SendSmsUseCase {
                 .variables(vars)
                 .status(NotificationStatus.PENDING)
                 .retryCount(0)
+                .dedupKey(cmd.dedupKey())
                 .build();
         record = notificationRepo.save(record);
 
         try {
             emailSender.send(cmd.recipient(), subject, body);
             record.markSent(LocalDateTime.now());
-            record = notificationRepo.save(record);
             counter("sent", "email").increment();
             log.info("Email sent: tmpl={} to={}", cmd.templateCode(), cmd.recipient());
         } catch (Exception ex) {
             record.markFailed(ex.getMessage());
-            notificationRepo.save(record);
             counter("failed", "email").increment();
             log.error("Email send failed: tmpl={} to={} err={}",
                     cmd.templateCode(), cmd.recipient(), ex.getMessage());
-            throw ex;
         }
-        return record;
+        return notificationRepo.save(record);
     }
 
     @Override

@@ -62,4 +62,33 @@ public class FlightRepositoryAdapter implements FlightRepository {
                 .map(FlightPersistenceMapper::toAggregate)
                 .toList();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FlightAggregate> findUpcoming(LocalDateTime from, LocalDateTime to) {
+        return repository.findUpcoming(from, to).stream()
+                .map(FlightPersistenceMapper::toAggregate)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FlightAggregate> findByStatus(FlightStatus status) {
+        return repository.findByStatus(status).stream()
+                .map(FlightPersistenceMapper::toAggregate)
+                .toList();
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        repository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FlightAggregate> findAll() {
+        return repository.findAll().stream()
+                .map(FlightPersistenceMapper::toAggregate)
+                .toList();
+    }
 }

@@ -4,15 +4,111 @@ server:
 spring:
   application:
     name: api-gateway
+
   main:
     web-application-type: reactive
+
+  security:
+    oauth2:
+      client:
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8180/realms/airline-booking
+        registration:
+          keycloak:
+            client-id: api-gateway
+            client-secret: my-client-secret
+            authorization-grant-type: authorization_code
+            scope: openid, profile, email
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/airline-booking
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # 1. Flight Search Service (Có cả api public cho khách vãng lai xem lịch bay)
+            - id: flight-search-public
+              uri: lb://flight-search-service
+              predicates:
+                - Path=/api/v1/public/flights/**
+
+            - id: flight-search-secured
+              uri: lb://flight-search-service
+              predicates:
+                - Path=/api/v1/flights/**
+
+            # 2. Booking Service (Cần áp dụng Rate Limiter chống bot spam giữ chỗ/ghế)
+            - id: booking-service
+              uri: lb://booking-service
+              predicates:
+                - Path=/api/v1/bookings/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
+                    redis-rate-limiter.requestedTokens: 1
+
+            # 3. User Service (Quản lý hồ sơ hành khách)
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/users/**
+
+            # 4. Payment Service (Xử lý giao dịch mua vé)
+            - id: payment-service
+              uri: lb://payment-service
+              predicates:
+                - Path=/api/v1/payments/**
+
+            # 5. Notification Service (Gửi mail xác nhận, reminder)
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/v1/notifications/**
+
+          # Cấu hình CORS cho phép ReactJS gọi API sang Gateway công khai
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowed-origins:
+                  - "http://localhost:3000"  # Cổng ReactJS mặc định
+                  - "http://localhost:5173"  # Cổng Vite-ReactJS mặc định
+                allowed-methods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowed-headers: "*"
+                allow-credentials: true
+                max-age: 3600
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    lease-expiration-duration-in-seconds: 30
+    lease-renewal-interval-in-seconds: 10
+    instance-id: ${spring.application.name}:${server.port}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        # Gộp chung các endpoint cần thiết từ cả 2 file
+        include: health, info, gateway, prometheus, metrics
   endpoint:
+    gateway:
+      access: unrestricted
     prometheus:
       access: unrestricted
   metrics:
@@ -20,11 +116,12 @@ management:
       application: ${spring.application.name}
   tracing:
     sampling:
-      probability: 1.0
+      probability: 1.0 # Trace 100% request (Dành cho Dev, lên Prod nên giảm xuống 0.1)
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
 
 logging:
   pattern:
+    # Pattern log kèm theo Trace ID và Span ID từ Micrometer Tracing
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

@@ -3,6 +3,8 @@ package com.abs.booking.application;
 import com.abs.booking.application.dto.BookingDetailResponse;
 import com.abs.booking.application.dto.HoldSeatRequest;
 import com.abs.booking.application.dto.HoldSeatResponse;
+import com.abs.booking.application.dto.SeatInfoResponse;
+import com.abs.booking.application.dto.FlightDetailResponse;
 import com.abs.booking.domain.aggregate.BookingAggregate;
 import com.abs.booking.domain.aggregate.BookingItem;
 import com.abs.booking.domain.vo.BookingStatus;
@@ -47,12 +49,12 @@ public class BookingService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     public BookingService(BookingRepository bookingRepository,
-                          BookingEventPublisher eventPublisher,
-                          FlightSearchClient flightSearchClient,
-                          UserServiceClient userServiceClient,
-                          SeatLockService seatLockService,
-                          MeterRegistry meterRegistry,
-                          @Value("${booking.hold.ttl-minutes:10}") int holdTtlMinutes) {
+            BookingEventPublisher eventPublisher,
+            FlightSearchClient flightSearchClient,
+            UserServiceClient userServiceClient,
+            SeatLockService seatLockService,
+            MeterRegistry meterRegistry,
+            @Value("${booking.hold.ttl-minutes:10}") int holdTtlMinutes) {
         this.bookingRepository = bookingRepository;
         this.eventPublisher = eventPublisher;
         this.flightSearchClient = flightSearchClient;
@@ -77,13 +79,13 @@ public class BookingService {
                 + UUID.randomUUID().toString().substring(0, 5).toUpperCase();
 
         // Call flight-search-client to check seat availability
-        Map<String, Object> seatInfo = flightSearchClient.checkSeat(req.flightId(), req.seatNo());
+        SeatInfoResponse seatInfo = flightSearchClient.checkSeat(req.flightId(), req.seatNo());
 
-        if (seatInfo == null || !"AVAILABLE".equals(seatInfo.get("status"))) {
+        if (seatInfo == null || !"AVAILABLE".equals(seatInfo.status())) {
             throw new SeatNotAvailableException(req.flightId(), req.seatNo());
         }
 
-        BigDecimal price = new BigDecimal(seatInfo.get("price").toString());
+        BigDecimal price = seatInfo.price();
 
         // Redis distributed lock
         boolean acquired = seatLockService.acquireLock(
@@ -101,7 +103,8 @@ public class BookingService {
         }
 
         // Build using aggregate factory and save booking
-        BookingAggregate booking = BookingAggregate.createHold(bookingCode, userId, req.flightId(), price, holdTtlMinutes);
+        BookingAggregate booking = BookingAggregate.createHold(bookingCode, userId, req.flightId(), price,
+                holdTtlMinutes);
 
         BookingItem item = BookingItem.builder()
                 .seatNo(req.seatNo())
@@ -129,8 +132,7 @@ public class BookingService {
                 req.seatNo(),
                 price,
                 booking.getCurrency(),
-                booking.getExpiresAt()
-        );
+                booking.getExpiresAt());
     }
 
     @Transactional(readOnly = true)
@@ -171,7 +173,8 @@ public class BookingService {
         // Enrich and publish event via outbox
         String email = userServiceClient.getUserEmail(booking.getUserId());
         String passengerName = (booking.getItems() == null || booking.getItems().isEmpty())
-                ? "Passenger" : booking.getItems().get(0).getPassengerName();
+                ? "Passenger"
+                : booking.getItems().get(0).getPassengerName();
         eventPublisher.publishCancelled(booking, email, passengerName, "Cancelled by user");
 
         // Increment metric
@@ -216,6 +219,11 @@ public class BookingService {
         BookingAggregate booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException(bookingId));
 
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            log.info("Booking {} is already CONFIRMED. Skipping duplicate event processing.", bookingId);
+            return;
+        }
+
         // Delegate state transition to domain aggregate
         booking.confirm(paymentId);
 
@@ -225,7 +233,8 @@ public class BookingService {
             seatLockService.releaseLock(flightId, seatNo);
             boolean bookSuccess = flightSearchClient.bookSeat(flightId, seatNo);
             if (!bookSuccess) {
-                log.error("Failed to book seat {} for flightId {} in flight-search-service during confirmation", seatNo, flightId);
+                log.error("Failed to book seat {} for flightId {} in flight-search-service during confirmation", seatNo,
+                        flightId);
                 throw new IllegalStateException("Không thể xác nhận ghế " + seatNo + " trên hệ thống chuyến bay");
             }
         });
@@ -235,13 +244,16 @@ public class BookingService {
         // Enrich email and flight info
         String email = userServiceClient.getUserEmail(booking.getUserId());
         String passengerName = (booking.getItems() == null || booking.getItems().isEmpty())
-                ? "Passenger" : booking.getItems().get(0).getPassengerName();
+                ? "Passenger"
+                : booking.getItems().get(0).getPassengerName();
 
-        Map<String, Object> flightInfo = flightSearchClient.getFlightDetails(booking.getFlightId());
-        String flightNo = flightInfo != null ? String.valueOf(flightInfo.get("flightNo")) : "Unknown";
-        String from = flightInfo != null ? String.valueOf(flightInfo.get("fromAirport")) : "Unknown";
-        String to = flightInfo != null ? String.valueOf(flightInfo.get("toAirport")) : "Unknown";
-        String departureTime = flightInfo != null ? String.valueOf(flightInfo.get("departureTime")) : "Unknown";
+        Map<String, Object> flightInfoMap = null; // compatibility for older/generic places if any, but here we can
+                                                  // define variables directly
+        FlightDetailResponse flightInfo = flightSearchClient.getFlightDetails(booking.getFlightId());
+        String flightNo = flightInfo != null ? flightInfo.flightNo() : "Unknown";
+        String from = flightInfo != null ? flightInfo.fromAirport() : "Unknown";
+        String to = flightInfo != null ? flightInfo.toAirport() : "Unknown";
+        String departureTime = flightInfo != null ? String.valueOf(flightInfo.departureTime()) : "Unknown";
 
         // Publish event via outbox
         eventPublisher.publishConfirmed(booking, email, passengerName, flightNo, from, to, departureTime);
@@ -254,6 +266,11 @@ public class BookingService {
     public void handlePaymentFailed(Long bookingId, String reason) {
         BookingAggregate booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new BookingNotFoundException(bookingId));
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            log.info("Booking {} is already CANCELLED. Skipping duplicate event processing.", bookingId);
+            return;
+        }
 
         // Delegate state transition to domain aggregate
         booking.cancel();
@@ -270,7 +287,8 @@ public class BookingService {
         // Enrich details for event
         String email = userServiceClient.getUserEmail(booking.getUserId());
         String passengerName = (booking.getItems() == null || booking.getItems().isEmpty())
-                ? "Passenger" : booking.getItems().get(0).getPassengerName();
+                ? "Passenger"
+                : booking.getItems().get(0).getPassengerName();
 
         // Publish event via outbox
         eventPublisher.publishCancelled(booking, email, passengerName, reason);

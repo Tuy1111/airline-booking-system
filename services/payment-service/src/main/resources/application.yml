@@ -5,10 +5,10 @@ spring:
   application:
     name: payment-service
   datasource:
-    # Default -> Postgres trên VPS (host 5555) khi chạy local. Docker set DB_HOST=postgres/DB_PORT=5432.
-    url: jdbc:postgresql://${DB_HOST:143.198.213.125}:${DB_PORT:5555}/payment_db
-    username: ${DB_USER:abs}
-    password: ${DB_PASS:abs123}
+    # Cấu hình đọc từ .env ở root repo. Docker set DB_HOST=postgres/DB_PORT=5432.
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/payment_db
+    username: ${DB_USER}
+    password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -24,7 +24,7 @@ spring:
     locations: classpath:db/migration
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -38,9 +38,9 @@ app:
     bank-account: ${SEPAY_BANK_ACC}
     bank-code: ${SEPAY_BANK_CODE}
     account-holder: ${SEPAY_ACC_HOLDER}
-    qr-base: ${SEPAY_QR_BASE:https://qr.sepay.vn/img}
-    qr-template: ${SEPAY_QR_TEMPLATE:compact}
-    expires-minutes: ${SEPAY_EXPIRES_MIN:15}
+    qr-base: ${SEPAY_QR_BASE}
+    qr-template: ${SEPAY_QR_TEMPLATE}
+    expires-minutes: ${SEPAY_EXPIRES_MIN}
   kafka:
     topics:
       payment-completed: payment.completed
@@ -66,10 +66,10 @@ management:
   tracing:
     sampling:
       probability: 1.0
-    enabled: ${TRACING_ENABLED:false}        # bật = true khi đã chạy Zipkin (Docker)
+    enabled: ${TRACING_ENABLED}              # bật = true khi đã chạy Zipkin (Docker)
   zipkin:
     tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+      endpoint: ${ZIPKIN_ENDPOINT}
 
 logging:
   pattern:
@@ -77,9 +77,9 @@ logging:
 
 eureka:
   instance:
-    hostname: localhost
+    hostname: ${EUREKA_INSTANCE_HOSTNAME}
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: ${EUREKA_URL}

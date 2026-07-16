@@ -5,10 +5,10 @@ spring:
   application:
     name: flight-search-service
   datasource:
-    # Local -> Postgres trên VPS (host 5555). Docker override qua SPRING_DATASOURCE_URL -> postgres:5432
-    url: jdbc:postgresql://143.198.213.125:5555/flight_db
-    username: ${DB_USER:abs}
-    password: ${DB_PASS:abs123}
+    # Cấu hình đọc từ .env ở root repo. Docker override qua SPRING_DATASOURCE_URL -> postgres:5432
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/flight_db
+    username: ${DB_USER}
+    password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -37,10 +37,10 @@ management:
   tracing:
     sampling:
       probability: 1.0
-    enabled: ${TRACING_ENABLED:false}
+    enabled: ${TRACING_ENABLED}
   zipkin:
     tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+      endpoint: ${ZIPKIN_ENDPOINT}
 
 logging:
   pattern:
@@ -48,9 +48,9 @@ logging:
 
 eureka:
   instance:
-    hostname: localhost
+    hostname: ${EUREKA_INSTANCE_HOSTNAME}
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: ${EUREKA_URL}

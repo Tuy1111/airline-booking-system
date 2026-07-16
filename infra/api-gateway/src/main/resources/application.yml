@@ -10,7 +10,7 @@ spring:
       client:
         provider:
           keycloak:
-            issuer-uri: http://localhost:8180/realms/airline-booking
+            issuer-uri: ${KEYCLOAK_URL:http://143.198.213.125:8180}/realms/airline-booking
         registration:
           keycloak:
             client-id: api-gateway
@@ -19,7 +19,7 @@ spring:
             scope: openid, profile, email
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/airline-booking
+          issuer-uri: ${KEYCLOAK_URL:http://143.198.213.125:8180}/realms/airline-booking
   cloud:
     gateway:
       server:

@@ -1,35 +1,10 @@
 server:
   port: 8080
-
 spring:
   application:
     name: api-gateway
-
   main:
     web-application-type: reactive
-  cloud:
-    gateway:
-      server:
-        webflux:
-          discovery:
-            locator:
-              enabled: true
-              lower-case-service-id: true
-          routes:
-            - id: booking-service
-              uri: lb://BOOKING-SERVICE
-              predicates:
-                - Path=/api/bookings/**
-
-eureka:
-  instance:
-    hostname: localhost
-    prefer-ip-address: true
-    instance-id: ${spring.application.name}:${server.port}
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka
-
   security:
     oauth2:
       client:
@@ -45,7 +20,6 @@ eureka:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8180/realms/airline-booking
-
   cloud:
     gateway:
       server:
@@ -56,12 +30,10 @@ eureka:
               uri: lb://flight-search-service
               predicates:
                 - Path=/api/v1/public/flights/**
-
             - id: flight-search-secured
               uri: lb://flight-search-service
               predicates:
                 - Path=/api/v1/flights/**
-
             # 2. Booking Service (Cần áp dụng Rate Limiter chống bot spam giữ chỗ/ghế)
             - id: booking-service
               uri: lb://booking-service
@@ -73,25 +45,21 @@ eureka:
                     redis-rate-limiter.replenishRate: 10
                     redis-rate-limiter.burstCapacity: 20
                     redis-rate-limiter.requestedTokens: 1
-
             # 3. User Service (Quản lý hồ sơ hành khách)
             - id: user-service
               uri: lb://user-service
               predicates:
                 - Path=/api/v1/users/**
-
             # 4. Payment Service (Xử lý giao dịch mua vé)
             - id: payment-service
               uri: lb://payment-service
               predicates:
                 - Path=/api/v1/payments/**
-
             # 5. Notification Service (Gửi mail xác nhận, reminder)
             - id: notification-service
               uri: lb://notification-service
               predicates:
                 - Path=/api/v1/notifications/**
-
           # Cấu hình CORS cho phép ReactJS gọi API sang Gateway công khai
           globalcors:
             cors-configurations:
@@ -109,7 +77,6 @@ eureka:
                 allowed-headers: "*"
                 allow-credentials: true
                 max-age: 3600
-
 eureka:
   client:
     service-url:
@@ -121,7 +88,6 @@ eureka:
     lease-expiration-duration-in-seconds: 30
     lease-renewal-interval-in-seconds: 10
     instance-id: ${spring.application.name}:${server.port}
-
 management:
   endpoints:
     web:
@@ -142,7 +108,6 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
-
 logging:
   pattern:
     # Pattern log kèm theo Trace ID và Span ID từ Micrometer Tracing

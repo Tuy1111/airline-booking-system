@@ -4,8 +4,8 @@ services:
     container_name: abs-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: abs
-      POSTGRES_PASSWORD: abs123
+      POSTGRES_USER: ${DB_USER:?DB_USER chua set trong .env}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/docker/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U abs"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?DB_USER chua set trong .env}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -38,8 +38,8 @@ services:
     container_name: abs-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@abs.local
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:?PGADMIN_EMAIL chua set trong .env}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?PGADMIN_PASSWORD chua set trong .env}
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
       - "5050:80"
@@ -54,10 +54,10 @@ services:
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: abs
-      KC_DB_PASSWORD: abs123
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
+      KC_DB_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN chua set trong .env}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD chua set trong .env}
       KC_HTTP_PORT: 8180
     command: start-dev --import-realm
     ports:

@@ -87,7 +87,7 @@ logging:
 
 eureka:
   instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME}
+    # Khong set hostname: prefer-ip-address=true -> Eureka dang ky bang IP
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}
   client:

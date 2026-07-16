@@ -32,8 +32,8 @@ services:
     container_name: abs-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-abs}
-      POSTGRES_PASSWORD: ${DB_PASS:-abs123}
+      POSTGRES_USER: ${DB_USER:?DB_USER chua set trong .env}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
       POSTGRES_DB: postgres
     # Host 5555 -> container 5432 (tránh đụng Postgres native/cổng khác trên VPS).
     # Nội bộ Docker các service vẫn nối qua postgres:5432, KHÔNG đổi.
@@ -43,7 +43,7 @@ services:
       # Tạo 5 DB lần đầu. Dùng .sql (không phải .sh) để tránh lỗi CRLF trên Windows checkout.
       - ./infra/docker/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-abs}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?DB_USER chua set trong .env}"]
       interval: 5s
       timeout: 3s
       retries: 15
@@ -82,9 +82,11 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # In-network dùng kafka:29092, host dùng localhost:9092
+      # In-network dùng kafka:29092, client ngoài dùng <KAFKA_ADVERTISED_HOST>:9092.
+      # Tren VPS phai set KAFKA_ADVERTISED_HOST=<IP VPS> trong .env, neu khong
+      # client ngoai se nhan ve "localhost:9092" va connect vao chinh may no.
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://${KAFKA_ADVERTISED_HOST:-localhost}:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -100,6 +102,11 @@ services:
     image: rabbitmq:3.13-management
     container_name: abs-rabbitmq
     restart: unless-stopped
+    environment:
+      # Tao dung user ma notification-service dung de connect (RABBIT_USER/RABBIT_PASS).
+      # Khong set thi container chi co guest/guest -> doi RABBIT_USER se fail connect.
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:?RABBIT_USER chua set trong .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS:?RABBIT_PASS chua set trong .env}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -194,8 +201,8 @@ services:
     environment:
       <<: [*eureka, *observability]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flight_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-abs}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS:-abs123}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
     ports: ["8081:8081"]
     depends_on:
       postgres:
@@ -219,8 +226,8 @@ services:
     environment:
       <<: [*eureka, *observability]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_db?options=-c%20timezone=Asia/Ho_Chi_Minh
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-abs}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS:-abs123}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       KAFKA_BOOTSTRAP: kafka:29092
@@ -254,10 +261,10 @@ services:
     environment:
       <<: [*eureka, *observability]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-abs}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASS:-abs123}
-      JWT_SECRET: ${JWT_SECRET:-dev-only-user-service-jwt-secret-change-me-0123456789abcdef}
-      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-3600}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chua set trong .env (>= 32 bytes)}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:?JWT_TTL_SECONDS chua set trong .env}
     ports: ["8083:8083"]
     depends_on:
       postgres:
@@ -282,16 +289,18 @@ services:
       <<: [*eureka, *observability]
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_USER: ${DB_USER:-abs}
-      DB_PASS: ${DB_PASS:-abs123}
+      DB_USER: ${DB_USER:?DB_USER chua set trong .env}
+      DB_PASS: ${DB_PASS:?DB_PASS chua set trong .env}
       KAFKA_BOOTSTRAP: kafka:29092
-      SEPAY_API_KEY: ${SEPAY_API_KEY:-}
-      SEPAY_BANK_ACC: ${SEPAY_BANK_ACC:-}
-      SEPAY_BANK_CODE: ${SEPAY_BANK_CODE:-}
-      SEPAY_ACC_HOLDER: ${SEPAY_ACC_HOLDER:-}
-      SEPAY_QR_BASE: ${SEPAY_QR_BASE:-https://qr.sepay.vn/img}
-      SEPAY_QR_TEMPLATE: ${SEPAY_QR_TEMPLATE:-compact}
-      SEPAY_EXPIRES_MIN: ${SEPAY_EXPIRES_MIN:-15}
+      # Dung "?" (khong phai ":?"): bao loi khi THIEU key, nhung cho phep de RONG.
+      # Dev khong co tai khoan SePay -> de rong, app van boot (chi SePay khong xai duoc).
+      SEPAY_API_KEY: ${SEPAY_API_KEY?SEPAY_API_KEY chua co trong .env}
+      SEPAY_BANK_ACC: ${SEPAY_BANK_ACC?SEPAY_BANK_ACC chua co trong .env}
+      SEPAY_BANK_CODE: ${SEPAY_BANK_CODE?SEPAY_BANK_CODE chua co trong .env}
+      SEPAY_ACC_HOLDER: ${SEPAY_ACC_HOLDER?SEPAY_ACC_HOLDER chua co trong .env}
+      SEPAY_QR_BASE: ${SEPAY_QR_BASE:?SEPAY_QR_BASE chua set trong .env}
+      SEPAY_QR_TEMPLATE: ${SEPAY_QR_TEMPLATE:?SEPAY_QR_TEMPLATE chua set trong .env}
+      SEPAY_EXPIRES_MIN: ${SEPAY_EXPIRES_MIN:?SEPAY_EXPIRES_MIN chua set trong .env}
     ports: ["8084:8084"]
     depends_on:
       postgres:
@@ -318,16 +327,16 @@ services:
       <<: [*eureka, *observability]
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_USER: ${DB_USER:-abs}
-      DB_PASS: ${DB_PASS:-abs123}
+      DB_USER: ${DB_USER:?DB_USER chua set trong .env}
+      DB_PASS: ${DB_PASS:?DB_PASS chua set trong .env}
       KAFKA_BOOTSTRAP: kafka:29092
       MAIL_HOST: mailhog
       MAIL_PORT: "1025"
-      MAIL_FROM: ${MAIL_FROM:-no-reply@airline.local}
+      MAIL_FROM: ${MAIL_FROM:?MAIL_FROM chua set trong .env}
       RABBIT_HOST: rabbitmq
       RABBIT_PORT: "5672"
-      RABBIT_USER: ${RABBIT_USER:-guest}
-      RABBIT_PASS: ${RABBIT_PASS:-guest}
+      RABBIT_USER: ${RABBIT_USER:?RABBIT_USER chua set trong .env}
+      RABBIT_PASS: ${RABBIT_PASS:?RABBIT_PASS chua set trong .env}
     ports: ["8085:8085"]
     depends_on:
       postgres:
@@ -371,23 +380,25 @@ services:
     profiles: ["monitoring"]
     ports: ["3000:3000"]
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS:-admin}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:?GRAFANA_USER chua set trong .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS:?GRAFANA_PASS chua set trong .env}
       GF_AUTH_ANONYMOUS_ENABLED: "true"
     volumes:
       - grafanadata:/var/lib/grafana
     networks: [abs]
+
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.4
     container_name: abs-keycloak
     restart: unless-stopped
     environment:
       KC_DB: postgres
+      # DB keycloak duoc tao san boi infra/docker/init-databases.sql
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: abs
-      KC_DB_PASSWORD: abs123
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
+      KC_DB_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN chua set trong .env}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD chua set trong .env}
       KC_HTTP_PORT: 8180
     command: start-dev --import-realm
     ports:
@@ -397,6 +408,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks: [abs]
 networks:
   abs:
     driver: bridge

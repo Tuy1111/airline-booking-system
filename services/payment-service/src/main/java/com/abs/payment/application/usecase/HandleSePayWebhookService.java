@@ -1,9 +1,10 @@
 package com.abs.payment.application.usecase;
 
+import com.abs.payment.api.dto.SePayWebhookPayload;
 import com.abs.payment.application.PaymentEventPublisher;
 import com.abs.payment.application.dto.PaymentCompletedEvent;
 import com.abs.payment.application.dto.PaymentFailedEvent;
-import com.abs.payment.application.dto.SePayWebhookPayload;
+import com.abs.payment.application.port.in.HandleSePayWebhookUseCase;
 import com.abs.payment.domain.aggregate.Payment;
 import com.abs.payment.domain.aggregate.Transaction;
 import com.abs.payment.domain.enums.PaymentStatus;
@@ -22,7 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Use case "xử lý webhook từ SePay".
+ * Hiện thực use case "xử lý webhook từ SePay" ({@link HandleSePayWebhookUseCase}).
  *
  * <p>Đối soát giao dịch chuyển khoản vào tài khoản công ty, đánh SUCCESS/FAILED
  * cho payment tương ứng và phát event. Idempotent theo referenceCode + trạng thái
@@ -31,7 +32,7 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HandleSePayWebhookUseCase {
+public class HandleSePayWebhookService implements HandleSePayWebhookUseCase {
 
     private static final Pattern CODE_IN_CONTENT =
             Pattern.compile("(ABS\\w{4,})", Pattern.CASE_INSENSITIVE);
@@ -41,10 +42,7 @@ public class HandleSePayWebhookUseCase {
     private final PaymentEventPublisher events;
     private final MeterRegistry meters;
 
-    /**
-     * Xử lý 1 webhook event từ SePay. Trả về true nếu đã apply (state thay đổi),
-     * false nếu ignored (duplicate / unknown / outbound).
-     */
+    @Override
     @Transactional
     public boolean handleSePayWebhook(SePayWebhookPayload p) {
         if (p == null || !"in".equalsIgnoreCase(p.transferType())) {

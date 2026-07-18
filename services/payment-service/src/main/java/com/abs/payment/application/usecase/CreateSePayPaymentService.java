@@ -1,7 +1,8 @@
 package com.abs.payment.application.usecase;
 
+import com.abs.payment.api.dto.CreatePaymentRequest;
 import com.abs.payment.application.SePayQrService;
-import com.abs.payment.application.dto.CreatePaymentRequest;
+import com.abs.payment.application.port.in.CreateSePayPaymentUseCase;
 import com.abs.payment.domain.aggregate.Payment;
 import com.abs.payment.domain.enums.PaymentGateway;
 import com.abs.payment.domain.enums.PaymentMethod;
@@ -20,24 +21,21 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /**
- * Use case "tạo thanh toán SePay".
+ * Hiện thực use case "tạo thanh toán SePay" ({@link CreateSePayPaymentUseCase}).
  *
  * <p>Idempotent theo {@code idempotencyKey} — gọi lại với cùng key trả về payment đã tạo.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CreateSePayPaymentUseCase {
+public class CreateSePayPaymentService implements CreateSePayPaymentUseCase {
 
     private final PaymentRepository paymentRepo;
     private final SePayQrService qrService;
     private final SePayProperties sepayProps;
     private final MeterRegistry meters;
 
-    /**
-     * Tạo Payment mới gắn với SePay. Idempotent theo idempotencyKey —
-     * gọi lại với cùng key trả về payment đã tạo.
-     */
+    @Override
     @Transactional
     public Payment createSePayPayment(CreatePaymentRequest req) {
         // Idempotency
@@ -67,7 +65,7 @@ public class CreateSePayPaymentUseCase {
         return p;
     }
 
-    /** Dựng URL ảnh QR cho payment để hiển thị cho người dùng. */
+    @Override
     public String buildQrUrl(Payment p) {
         return qrService.buildQrUrl(p.getTransferCode(), p.getTotal().amount());
     }

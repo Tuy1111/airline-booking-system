@@ -180,8 +180,17 @@ services:
         MODULE: infra/api-gateway
     environment:
       <<: [*eureka, *observability]
+      # RequestRateLimiter cua gateway can Redis (khong co -> route booking loi 500)
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8180}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:?KEYCLOAK_CLIENT_ID chua set trong .env}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET chua set trong .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS chua set trong .env}
     ports: ["8080:8080"]
     depends_on:
+      redis:
+        condition: service_healthy
       service-registry:
         condition: service_healthy
     healthcheck:
@@ -231,9 +240,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       KAFKA_BOOTSTRAP: kafka:29092
-      # booking gọi trực tiếp sang service khác -> trỏ vào tên container (không phải localhost)
-      APP_SERVICES_USER_URL: http://user-service:8083
-      APP_SERVICES_FLIGHT_SEARCH_URL: http://flight-search-service:8081
+      # KHONG hardcode URL service khac o day: booking goi qua Eureka bang TEN SERVICE
+      # (Feign @FeignClient(name=...) va RestTemplate @LoadBalanced) -> tu resolve instance.
     ports: ["8082:8082"]
     depends_on:
       postgres:

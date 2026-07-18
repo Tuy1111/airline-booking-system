@@ -75,6 +75,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Seed .env from example
+        run: cp .env.example .env
+
       - name: Validate production compose file
         run: docker compose -f docker-compose.prod.yml config --quiet
 

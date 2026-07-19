@@ -37,7 +37,7 @@ public class CreateSePayPaymentService implements CreateSePayPaymentUseCase {
 
     @Override
     @Transactional
-    public Payment createSePayPayment(CreatePaymentRequest req) {
+    public Payment createSePayPayment(CreatePaymentRequest req, Long userId) {
         // Idempotency
         var existing = paymentRepo.findByIdempotencyKey(req.idempotencyKey());
         if (existing.isPresent()) return existing.get();
@@ -48,7 +48,7 @@ public class CreateSePayPaymentService implements CreateSePayPaymentUseCase {
         Payment p = Payment.builder()
                 .paymentCode(paymentCode)
                 .bookingId(req.bookingId())
-                .userId(req.userId())
+                .userId(userId)
                 .total(Money.vnd(req.amount()))
                 .method(req.method() == null ? PaymentMethod.BANK_TRANSFER : req.method())
                 .gateway(PaymentGateway.SEPAY)

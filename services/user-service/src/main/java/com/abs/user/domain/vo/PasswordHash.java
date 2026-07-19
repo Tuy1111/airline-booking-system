@@ -4,7 +4,8 @@ package com.abs.user.domain.vo;
  * Value Object wrapping an <em>already hashed</em> credential.
  *
  * <p>The domain deliberately never sees a raw password: hashing is an infrastructure concern
- * (see the {@code PasswordHasher} application port). This VO only guarantees that a stored
+ * This legacy persistence value is retained for existing rows while authentication is managed by
+ * Keycloak. The VO only guarantees that a stored
  * credential is present and within the persistable length, and it refuses to leak the digest via
  * {@link #toString()} so the secret never accidentally ends up in a log line.
  */

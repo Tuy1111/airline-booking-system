@@ -18,16 +18,18 @@ import { notificationApi } from './features/notifications/api'
 import type { NotificationItem } from './features/notifications/types'
 import { paymentApi } from './features/payments/api'
 import type { PaymentResponse } from './features/payments/types'
-import { userApi } from './features/users/api'
-import type { AuthResult } from './features/users/types'
 import { pageItems } from './shared/api/page'
+import {
+  currentUser,
+  login as keycloakLogin,
+  logout as keycloakLogout,
+  register as keycloakRegister,
+} from './shared/auth/keycloak'
 import heroImage from './assets/airline-hero.png'
 
-type AuthMode = 'login' | 'register'
 type PageMode = 'user' | 'admin'
 type BusyKey =
   | 'catalog'
-  | 'auth'
   | 'search'
   | 'flight'
   | 'hold'
@@ -36,8 +38,6 @@ type BusyKey =
   | 'notifications'
   | 'admin'
   | ''
-
-const authStorageKey = 'abs.frontend.auth'
 
 function dateInputValue(date = new Date()) {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -64,20 +64,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
   dateStyle: 'short',
   timeStyle: 'short',
 })
-
-function readStoredAuth() {
-  const raw = localStorage.getItem(authStorageKey)
-  if (!raw) {
-    return null
-  }
-
-  try {
-    return JSON.parse(raw) as AuthResult
-  } catch {
-    localStorage.removeItem(authStorageKey)
-    return null
-  }
-}
 
 function formatMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0)
@@ -174,15 +160,7 @@ function App() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
 
-  const [authMode, setAuthMode] = useState<AuthMode>('login')
-  const [auth, setAuth] = useState<AuthResult | null>(() => readStoredAuth())
-  const [demoUserId, setDemoUserId] = useState('1')
-  const [authForm, setAuthForm] = useState({
-    email: 'demo@abs.local',
-    rawPassword: 'Password123!',
-    fullName: 'Demo Passenger',
-    phone: '0900000000',
-  })
+  const [auth] = useState(() => currentUser())
 
   const [airports, setAirports] = useState<Airport[]>([])
   const [airlines, setAirlines] = useState<Airline[]>([])
@@ -207,7 +185,7 @@ function App() {
   const [selectedSeat, setSelectedSeat] = useState('')
   const [manualSeat, setManualSeat] = useState('1A')
 
-  const [passengerName, setPassengerName] = useState('Demo Passenger')
+  const [passengerName, setPassengerName] = useState(auth?.fullName ?? 'Passenger')
   const [passengerPassport, setPassengerPassport] = useState('P1234567')
   const [holdResult, setHoldResult] = useState<HoldSeatResponse | null>(null)
   const [activeBooking, setActiveBooking] = useState<BookingDetail | null>(null)
@@ -229,7 +207,6 @@ function App() {
     aircraftType: 'Airbus A321',
   })
 
-  const userId = auth?.user.id ?? Number(demoUserId || 1)
   const seatRows = useMemo(() => groupSeats(seats), [seats])
   const availableSeats = useMemo(
     () => seats.filter((seat) => seat.status === 'AVAILABLE').length,
@@ -265,32 +242,6 @@ function App() {
       setAirlines(airlineData)
       setRoutes(routeData)
     }, 'catalog')
-  }
-
-  async function handleAuth(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    await run(async () => {
-      const result =
-        authMode === 'login'
-          ? await userApi.login({
-              email: authForm.email,
-              rawPassword: authForm.rawPassword,
-            })
-          : await userApi.register(authForm)
-
-      setAuth(result)
-      setDemoUserId(String(result.user.id))
-      setPassengerName(result.user.fullName)
-      localStorage.setItem(authStorageKey, JSON.stringify(result))
-      setNotice(`Signed in as ${result.user.fullName}`)
-    }, 'auth')
-  }
-
-  function logout() {
-    setAuth(null)
-    localStorage.removeItem(authStorageKey)
-    setNotice('Signed out. Demo X-User-Id is still available for booking calls.')
   }
 
   async function handleSearch(event?: FormEvent<HTMLFormElement>) {
@@ -333,6 +284,9 @@ function App() {
 
   async function holdSeat() {
     await run(async () => {
+      if (!auth) {
+        throw new Error('Đăng nhập bằng Keycloak trước khi đặt chỗ.')
+      }
       if (!flightDetail) {
         throw new Error('Select a flight first.')
       }
@@ -342,7 +296,7 @@ function App() {
         throw new Error('Select or enter a seat number.')
       }
 
-      const held = await bookingApi.holdSeat(userId, {
+      const held = await bookingApi.holdSeat({
         flightId: flightDetail.id,
         seatNo,
         passengerName: passengerName.trim(),
@@ -360,6 +314,9 @@ function App() {
 
   async function createPayment() {
     await run(async () => {
+      if (!auth) {
+        throw new Error('Đăng nhập bằng Keycloak trước khi thanh toán.')
+      }
       const booking = activeBooking
       const held = holdResult
       const bookingId = booking?.id ?? held?.bookingId
@@ -371,7 +328,6 @@ function App() {
 
       const paymentData = await paymentApi.createPayment({
         bookingId,
-        userId,
         amount,
         method: 'BANK_TRANSFER',
         idempotencyKey: `web-${bookingId}-${Date.now()}`,
@@ -398,14 +354,16 @@ function App() {
 
   async function loadBookings() {
     await run(async () => {
-      const data = await bookingApi.getMyBookings(userId, bookingStatus)
+      if (!auth) throw new Error('Đăng nhập bằng Keycloak để xem booking.')
+      const data = await bookingApi.getMyBookings(bookingStatus)
       setBookings(pageItems(data))
     }, 'bookings')
   }
 
   async function cancelBooking(bookingId: number) {
     await run(async () => {
-      const booking = await bookingApi.cancelBooking(bookingId, userId)
+      if (!auth) throw new Error('Đăng nhập bằng Keycloak để hủy booking.')
+      const booking = await bookingApi.cancelBooking(bookingId)
       setActiveBooking(booking)
       setNotice(`Booking ${booking.bookingCode} is ${booking.status}.`)
       await loadBookings()
@@ -414,7 +372,8 @@ function App() {
 
   async function loadNotifications() {
     await run(async () => {
-      const data = await notificationApi.byUser(userId)
+      if (!auth) throw new Error('Đăng nhập bằng Keycloak để xem thông báo.')
+      const data = await notificationApi.mine()
       setNotifications(pageItems(data))
     }, 'notifications')
   }
@@ -455,13 +414,15 @@ function App() {
           >
             Người dùng
           </button>
-          <button
-            type="button"
-            className={page === 'admin' ? 'active' : ''}
-            onClick={() => setPage('admin')}
-          >
-            Admin
-          </button>
+          {auth?.roles.includes('ADMIN') && (
+            <button
+              type="button"
+              className={page === 'admin' ? 'active' : ''}
+              onClick={() => setPage('admin')}
+            >
+              Admin
+            </button>
+          )}
         </nav>
 
         <div className="header-actions">
@@ -469,8 +430,8 @@ function App() {
             Làm mới dữ liệu
           </button>
           <div className="user-chip">
-            <span>{auth ? auth.user.fullName : `Khách #${userId || 1}`}</span>
-            <small>{auth ? auth.user.email : 'Chế độ demo'}</small>
+            <span>{auth ? auth.fullName : 'Khách'}</span>
+            <small>{auth ? auth.email : 'Đăng nhập bằng Keycloak để đặt vé'}</small>
           </div>
         </div>
       </header>
@@ -614,87 +575,37 @@ function App() {
             <section className="account-panel">
               <div>
                 <p className="eyebrow">Tài khoản</p>
-                <h3>{auth ? `Xin chào, ${auth.user.fullName}` : 'Đăng nhập hoặc dùng khách demo'}</h3>
+                <h3>{auth ? `Xin chào, ${auth.fullName}` : 'Đăng nhập bằng Keycloak'}</h3>
               </div>
 
-              <form className="auth-form" onSubmit={(event) => void handleAuth(event)}>
-                <div className="segmented" aria-label="Authentication mode">
-                  <button
-                    type="button"
-                    className={authMode === 'login' ? 'active' : ''}
-                    onClick={() => setAuthMode('login')}
-                  >
-                    Đăng nhập
+              {!auth && (
+                <div className="auth-form">
+                  <p>Mật khẩu và phiên đăng nhập được quản lý tập trung bởi Keycloak.</p>
+                  <button type="button" className="primary-button" onClick={() => void keycloakLogin()}>
+                    Đăng nhập với Keycloak
                   </button>
-                  <button
-                    type="button"
-                    className={authMode === 'register' ? 'active' : ''}
-                    onClick={() => setAuthMode('register')}
-                  >
-                    Đăng ký
+                  <button type="button" className="ghost-button" onClick={() => void keycloakRegister()}>
+                    Tạo tài khoản Keycloak
                   </button>
                 </div>
-                <label>
-                  Email
-                  <input
-                    value={authForm.email}
-                    onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-                    type="email"
-                  />
-                </label>
-                <label>
-                  Mật khẩu
-                  <input
-                    value={authForm.rawPassword}
-                    onChange={(event) => setAuthForm({ ...authForm, rawPassword: event.target.value })}
-                    type="password"
-                  />
-                </label>
-                {authMode === 'register' && (
-                  <>
-                    <label>
-                      Họ tên
-                      <input
-                        value={authForm.fullName}
-                        onChange={(event) => setAuthForm({ ...authForm, fullName: event.target.value })}
-                      />
-                    </label>
-                    <label>
-                      Số điện thoại
-                      <input
-                        value={authForm.phone}
-                        onChange={(event) => setAuthForm({ ...authForm, phone: event.target.value })}
-                      />
-                    </label>
-                  </>
-                )}
-                <button type="submit" className="primary-button" disabled={busy === 'auth'}>
-                  {busy === 'auth' ? 'Đang xử lý' : authMode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
-                </button>
-              </form>
+              )}
 
               <div className="identity-box">
                 {auth ? (
                   <>
-                    <strong>{auth.user.fullName}</strong>
-                    <span>{auth.user.email}</span>
+                    <strong>{auth.fullName}</strong>
+                    <span>{auth.email}</span>
                     <div className="identity-meta">
-                      <Badge value={auth.user.status} />
-                      <Badge value={auth.user.kycStatus} />
-                      <Badge value={auth.user.loyaltyTier} />
+                      {auth.roles.map((role) => <Badge key={role} value={role} />)}
                     </div>
-                    <button type="button" className="ghost-button" onClick={logout}>
+                    <button type="button" className="ghost-button" onClick={() => void keycloakLogout()}>
                       Đăng xuất
                     </button>
                   </>
                 ) : (
                   <>
-                    <strong>Khách demo</strong>
-                    <span>Dùng mã khách để tạo booking thử nghiệm.</span>
-                    <label>
-                      Mã khách
-                      <input value={demoUserId} onChange={(event) => setDemoUserId(event.target.value)} />
-                    </label>
+                    <strong>Chưa đăng nhập</strong>
+                    <span>Bạn vẫn có thể tìm chuyến bay; đăng nhập để đặt chỗ và thanh toán.</span>
                   </>
                 )}
               </div>

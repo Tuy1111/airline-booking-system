@@ -19,24 +19,6 @@ export interface UserView {
   lastLoginAt: string | null
 }
 
-export interface AuthResult {
-  accessToken: string
-  tokenType: string
-  expiresInSeconds: number
-  expiresAt: string
-  user: UserView
-}
-
-export interface LoginRequest {
-  email: string
-  rawPassword: string
-}
-
-export interface RegisterRequest extends LoginRequest {
-  fullName: string
-  phone: string
-}
-
 export interface ProfileUpdateRequest {
   fullName: string
   phone: string

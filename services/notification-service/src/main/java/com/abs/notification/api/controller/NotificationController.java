@@ -43,4 +43,13 @@ public class NotificationController {
         return repo.findByUserId(userId, PageRequest.of(page, size))
                 .map(NotificationResponse::of);
     }
+
+    @GetMapping("/me")
+    public Page<NotificationResponse> mine(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size) {
+        return repo.findByUserId(userId, PageRequest.of(page, size))
+                .map(NotificationResponse::of);
+    }
 }

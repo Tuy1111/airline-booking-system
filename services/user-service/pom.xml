@@ -14,7 +14,6 @@
     <description>user-service</description>
     <properties>
         <spring-cloud.version>2025.0.2</spring-cloud.version>
-        <jjwt.version>0.12.6</jjwt.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -93,30 +92,6 @@
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
         </dependency>
 
-        <!-- BCrypt password hashing (standalone crypto module, no full Spring Security) -->
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
-        </dependency>
-
-        <!-- JWT issuance (jjwt) -->
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>${jjwt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
     </dependencies>
 
     <build>

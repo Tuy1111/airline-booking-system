@@ -13,33 +13,20 @@ spring:
       port: ${REDIS_PORT}
   security:
     oauth2:
-      client:
-        provider:
-          keycloak:
-            issuer-uri: ${KEYCLOAK_URL}/realms/airline-booking
-        registration:
-          keycloak:
-            client-id: ${KEYCLOAK_CLIENT_ID}
-            client-secret: ${KEYCLOAK_CLIENT_SECRET}
-            authorization-grant-type: authorization_code
-            scope: openid, profile, email
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_URL}/realms/airline-booking
+          jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:${KEYCLOAK_URL}}/realms/airline-booking/protocol/openid-connect/certs
   cloud:
     gateway:
       server:
         webflux:
           routes:
             # 1. Flight Search Service (Có cả api public cho khách vãng lai xem lịch bay)
-            - id: flight-search-public
+            - id: flight-search-service
               uri: lb://flight-search-service
               predicates:
-                - Path=/api/v1/public/flights/**
-            - id: flight-search-secured
-              uri: lb://flight-search-service
-              predicates:
-                - Path=/api/v1/flights/**
+                - Path=/api/v1/flights/**,/api/v1/airports/**,/api/v1/airlines/**,/api/v1/routes/**
             # 2. Booking Service (Cần áp dụng Rate Limiter chống bot spam giữ chỗ/ghế)
             - id: booking-service
               uri: lb://booking-service
@@ -51,6 +38,7 @@ spring:
                     redis-rate-limiter.replenishRate: 10
                     redis-rate-limiter.burstCapacity: 20
                     redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@ipKeyResolver}"
             # 3. User Service (Quản lý hồ sơ hành khách)
             - id: user-service
               uri: lb://user-service

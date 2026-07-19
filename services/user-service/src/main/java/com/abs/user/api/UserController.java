@@ -3,21 +3,16 @@ package com.abs.user.api;
 import com.abs.user.api.dto.MilesRequest;
 import com.abs.user.api.dto.SubmitPassportRequest;
 import com.abs.user.api.dto.UpdateProfileRequest;
-import com.abs.user.application.command.AuthenticateUserCommand;
 import com.abs.user.application.command.DeleteAccountCommand;
 import com.abs.user.application.command.EarnMilesCommand;
 import com.abs.user.application.command.RedeemMilesCommand;
-import com.abs.user.application.command.RegisterUserCommand;
 import com.abs.user.application.command.SubmitPassportCommand;
 import com.abs.user.application.command.UpdatePassengerProfileCommand;
-import com.abs.user.application.dto.AuthResult;
 import com.abs.user.application.dto.UserView;
 import com.abs.user.application.exception.UserNotFoundException;
-import com.abs.user.application.usecase.AuthenticateUserUseCase;
 import com.abs.user.application.usecase.DeleteUserAccountUseCase;
 import com.abs.user.application.usecase.GetUserUseCase;
 import com.abs.user.application.usecase.ManageFrequentFlyerUseCase;
-import com.abs.user.application.usecase.RegisterUserUseCase;
 import com.abs.user.application.usecase.UpdatePassengerProfileUseCase;
 import com.abs.user.application.usecase.VerifyPassportUseCase;
 import lombok.RequiredArgsConstructor;
@@ -49,8 +44,6 @@ import java.util.Optional;
 public class UserController {
 
     private final GetUserUseCase getUserUseCase;
-    private final RegisterUserUseCase registerUserUseCase;
-    private final AuthenticateUserUseCase authenticateUserUseCase;
     private final UpdatePassengerProfileUseCase updatePassengerProfileUseCase;
     private final ManageFrequentFlyerUseCase manageFrequentFlyerUseCase;
     private final VerifyPassportUseCase verifyPassportUseCase;
@@ -83,17 +76,6 @@ public class UserController {
     @GetMapping("/{id}/profile")
     public UserView getProfile(@PathVariable("id") Long id) {
         return getUserUseCase.findById(id).orElseThrow(() -> new UserNotFoundException(id));
-    }
-
-    @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AuthResult register(@RequestBody RegisterUserCommand command) {
-        return registerUserUseCase.handle(command);
-    }
-
-    @PostMapping("/login")
-    public AuthResult login(@RequestBody AuthenticateUserCommand command) {
-        return authenticateUserUseCase.handle(command);
     }
 
     @PutMapping("/{id}/profile")

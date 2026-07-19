@@ -1,7 +1,5 @@
 package com.abs.user.api;
 
-import com.abs.user.application.exception.AuthenticationFailedException;
-import com.abs.user.application.exception.EmailAlreadyRegisteredException;
 import com.abs.user.application.exception.UserNotFoundException;
 import com.abs.user.domain.exception.AccountDeletedException;
 import com.abs.user.domain.exception.AccountLockedException;
@@ -28,16 +26,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(UserNotFoundException ex) {
         return build(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    @ExceptionHandler(EmailAlreadyRegisteredException.class)
-    public ResponseEntity<ErrorResponse> handleEmailTaken(EmailAlreadyRegisteredException ex) {
-        return build(HttpStatus.CONFLICT, ex.getMessage());
-    }
-
-    @ExceptionHandler(AuthenticationFailedException.class)
-    public ResponseEntity<ErrorResponse> handleAuthFailure(AuthenticationFailedException ex) {
-        return build(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
     @ExceptionHandler(AccountLockedException.class)

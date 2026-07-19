@@ -13,6 +13,11 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.stream.Collectors;
 
 @Component
@@ -21,47 +26,72 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        return exchange.getPrincipal()
-                .flatMap(principal -> {
-                    if (principal instanceof JwtAuthenticationToken) {
-                        Jwt jwt = ((JwtAuthenticationToken) principal).getToken();
-                        return Mono.just(enrichHeaders(exchange,
-                                jwt.getSubject(),
-                                jwt.getClaimAsString("email"),
-                                jwt.getClaimAsStringList("roles")));
-                    } else if (principal instanceof org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken) {
-                        org.springframework.security.oauth2.core.user.OAuth2User user = ((org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken) principal).getPrincipal();
-                        String userId = user.getAttribute("sub");
-                        String email = user.getAttribute("email");
-                        // Tùy thuộc vào cấu hình Keycloak, roles có thể nằm trong realm_access.roles
-                        java.util.Map<String, Object> realmAccess = user.getAttribute("realm_access");
-                        List<String> roles = null;
-                        if (realmAccess != null && realmAccess.containsKey("roles")) {
-                            roles = (List<String>) realmAccess.get("roles");
-                        }
-                        return Mono.just(enrichHeaders(exchange, userId, email, roles));
-                    }
-                    return Mono.empty();
-                })
-                .cast(ServerWebExchange.class)
-                .switchIfEmpty(Mono.just(exchange))
+        ServerWebExchange sanitizedExchange = sanitizeIdentityHeaders(exchange);
+
+        return sanitizedExchange.getPrincipal()
+                .ofType(JwtAuthenticationToken.class)
+                .map(authentication -> enrichHeaders(sanitizedExchange, authentication.getToken()))
+                .defaultIfEmpty(sanitizedExchange)
                 .flatMap(chain::filter);
     }
 
-    private ServerWebExchange enrichHeaders(ServerWebExchange exchange, String userId, String email, List<String> roles) {
-        String rolesAsString = (roles != null) ? roles.stream()
-                .map(role -> "ROLE_" + role)
-                .collect(Collectors.joining(",")) : "";
-
-        log.debug("Enriching headers for Airline Services - userId: {}, roles: {}", userId, rolesAsString);
-
-        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                .header(GatewayConstants.HEADER_USER_ID, userId)
-                .header(GatewayConstants.HEADER_USER_ROLES, rolesAsString)
-                .header(GatewayConstants.HEADER_USER_NAME, email)
+    private ServerWebExchange sanitizeIdentityHeaders(ServerWebExchange exchange) {
+        ServerHttpRequest request = exchange.getRequest().mutate()
+                .headers(headers -> {
+                    headers.remove(GatewayConstants.HEADER_USER_ID);
+                    headers.remove(GatewayConstants.HEADER_USER_NAME);
+                    headers.remove(GatewayConstants.HEADER_USER_ROLES);
+                })
                 .build();
+        return exchange.mutate().request(request).build();
+    }
 
-        return exchange.mutate().request(mutatedRequest).build();
+    private ServerWebExchange enrichHeaders(ServerWebExchange exchange, Jwt jwt) {
+        Object userIdClaim = jwt.getClaim("user_id");
+        String userId = userIdClaim == null
+                ? numericIdFromSubject(jwt.getSubject())
+                : String.valueOf(userIdClaim);
+        String email = jwt.getClaimAsString("email");
+        String roles = extractRealmRoles(jwt.getClaim("realm_access"));
+
+        log.debug("Enriching headers from Keycloak - userId: {}, roles: {}", userId, roles);
+
+        ServerHttpRequest request = exchange.getRequest().mutate()
+                .headers(headers -> {
+                    if (userId != null && !userId.isBlank()) {
+                        headers.set(GatewayConstants.HEADER_USER_ID, userId);
+                    }
+                    if (email != null && !email.isBlank()) {
+                        headers.set(GatewayConstants.HEADER_USER_NAME, email);
+                    }
+                    headers.set(GatewayConstants.HEADER_USER_ROLES, roles);
+                })
+                .build();
+        return exchange.mutate().request(request).build();
+    }
+
+    private String numericIdFromSubject(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return null;
+        }
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(subject.getBytes(StandardCharsets.UTF_8));
+            long value = ByteBuffer.wrap(digest).getLong() & Long.MAX_VALUE;
+            return String.valueOf(value == 0 ? 1 : value);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
+    }
+
+    private String extractRealmRoles(Map<String, Object> realmAccess) {
+        if (realmAccess == null || !(realmAccess.get("roles") instanceof List<?> roles)) {
+            return "";
+        }
+        return roles.stream()
+                .map(String::valueOf)
+                .map(role -> "ROLE_" + role)
+                .collect(Collectors.joining(","));
     }
 
     @Override

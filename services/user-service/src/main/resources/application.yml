@@ -22,10 +22,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  mvc:
-    pathmatch:
-      base-path: /api/v1
-
 management:
   endpoints:
     web:
@@ -44,13 +40,6 @@ management:
   zipkin:
     tracing:
       endpoint: ${ZIPKIN_ENDPOINT}
-
-security:
-  jwt:
-    # HS256 secret — MUST be >= 32 bytes. Set JWT_SECRET trong .env, không hardcode.
-    secret: ${JWT_SECRET}
-    ttl-seconds: ${JWT_TTL_SECONDS}
-    issuer: user-service
 
 logging:
   pattern:

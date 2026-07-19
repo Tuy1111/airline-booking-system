@@ -133,20 +133,14 @@ services:
     build:
       context: ./frontend/frontend
       dockerfile: Dockerfile
+      args:
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:?VITE_KEYCLOAK_URL chua set trong .env}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-airline-booking}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-airline-frontend}
     ports:
       - "${FRONTEND_PORT:-80}:80"
     depends_on:
       api-gateway:
-        condition: service_started
-      flight-search-service:
-        condition: service_started
-      booking-service:
-        condition: service_started
-      user-service:
-        condition: service_started
-      payment-service:
-        condition: service_started
-      notification-service:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/healthz || exit 1"]
@@ -184,8 +178,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8180}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:?KEYCLOAK_CLIENT_ID chua set trong .env}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?KEYCLOAK_CLIENT_SECRET chua set trong .env}
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8180
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS chua set trong .env}
     ports: ["8080:8080"]
     depends_on:
@@ -212,7 +205,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flight_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
-    ports: ["8081:8081"]
+    expose: ["8081"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,7 +235,7 @@ services:
       KAFKA_BOOTSTRAP: kafka:29092
       # KHONG hardcode URL service khac o day: booking goi qua Eureka bang TEN SERVICE
       # (Feign @FeignClient(name=...) va RestTemplate @LoadBalanced) -> tu resolve instance.
-    ports: ["8082:8082"]
+    expose: ["8082"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -271,9 +264,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chua set trong .env (>= 32 bytes)}
-      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:?JWT_TTL_SECONDS chua set trong .env}
-    ports: ["8083:8083"]
+    expose: ["8083"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -309,7 +300,7 @@ services:
       SEPAY_QR_BASE: ${SEPAY_QR_BASE:?SEPAY_QR_BASE chua set trong .env}
       SEPAY_QR_TEMPLATE: ${SEPAY_QR_TEMPLATE:?SEPAY_QR_TEMPLATE chua set trong .env}
       SEPAY_EXPIRES_MIN: ${SEPAY_EXPIRES_MIN:?SEPAY_EXPIRES_MIN chua set trong .env}
-    ports: ["8084:8084"]
+    expose: ["8084"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -345,7 +336,7 @@ services:
       RABBIT_PORT: "5672"
       RABBIT_USER: ${RABBIT_USER:?RABBIT_USER chua set trong .env}
       RABBIT_PASS: ${RABBIT_PASS:?RABBIT_PASS chua set trong .env}
-    ports: ["8085:8085"]
+    expose: ["8085"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -408,6 +399,8 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN chua set trong .env}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD chua set trong .env}
       KC_HTTP_PORT: 8180
+      KC_HOSTNAME: ${KEYCLOAK_URL:?KEYCLOAK_URL chua set trong .env}
+      KC_PROXY_HEADERS: xforwarded
     command: start-dev --import-realm
     ports:
       - "8180:8180"

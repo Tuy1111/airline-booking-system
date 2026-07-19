@@ -424,8 +424,12 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN chua set trong .env}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD chua set trong .env}
       KC_HTTP_PORT: 8180
-      KC_HOSTNAME: ${KEYCLOAK_URL:?KEYCLOAK_URL chua set trong .env}
+      # Keycloak 24's default hostname provider expects a hostname here, not a
+      # full URL. The reverse proxy supplies the public HTTPS scheme.
+      KC_HOSTNAME: auth.${DOMAIN:?DOMAIN chua set trong .env}
       KC_PROXY_HEADERS: xforwarded
+      # Used by placeholders in the realm import (for redirect URIs/origins).
+      DOMAIN: ${DOMAIN:?DOMAIN chua set trong .env}
     command: start-dev --import-realm
     expose: ["8180"]
     volumes:

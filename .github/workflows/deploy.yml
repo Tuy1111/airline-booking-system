@@ -90,6 +90,12 @@ jobs:
 
             # Tranh build tat ca image Java cung luc tren VPS it CPU/RAM.
             export COMPOSE_PARALLEL_LIMIT=2
-            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            if ! docker compose -f docker-compose.prod.yml up -d --build --remove-orphans; then
+              echo "Deployment failed; collecting container diagnostics..."
+              docker compose -f docker-compose.prod.yml ps -a || true
+              docker logs --tail 200 abs-rabbitmq || true
+              docker inspect --format '{{json .State.Health}}' abs-rabbitmq || true
+              exit 1
+            fi
             docker image prune -f
             docker compose -f docker-compose.prod.yml ps

@@ -26,3 +26,14 @@ export interface ProfileUpdateRequest {
   gender?: 'MALE' | 'FEMALE' | 'OTHER' | ''
   nationality?: string
 }
+
+export interface MilesRequest {
+  miles: number
+  reason: string
+}
+
+export interface PassportSubmitRequest {
+  passportNumber: string
+  issuingCountry: string
+  expiryDate: string
+}

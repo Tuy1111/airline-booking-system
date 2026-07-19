@@ -21,6 +21,11 @@ export const bookingApi = {
       query: { status, page: 0, size: 20 },
     })
   },
+  getMine(status?: BookingStatus | '') {
+    return apiRequest<PageResponse<BookingDetail>>(baseUrl, `${root}/me`, {
+      query: { status, page: 0, size: 20 },
+    })
+  },
   cancelBooking(id: number) {
     return apiRequest<BookingDetail>(baseUrl, `${root}/${id}`, { method: 'DELETE' })
   },

@@ -5,22 +5,18 @@ import App from './App.tsx'
 import { initializeKeycloak } from './shared/auth/keycloak.ts'
 
 async function bootstrap() {
+  // Attempt to initialize Keycloak (check-sso), but render App regardless
   try {
     await initializeKeycloak()
-    createRoot(document.getElementById('root')!).render(
-      <StrictMode>
-        <App />
-      </StrictMode>,
-    )
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    createRoot(document.getElementById('root')!).render(
-      <main className="content-shell">
-        <h1>Không thể kết nối Keycloak</h1>
-        <p>{message}</p>
-      </main>,
-    )
+    console.warn('Keycloak initialization skipped:', error)
   }
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
 }
 
 void bootstrap()

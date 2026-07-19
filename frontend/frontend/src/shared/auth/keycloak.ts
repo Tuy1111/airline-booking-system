@@ -18,8 +18,18 @@ export const keycloak = new Keycloak({
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID ?? 'airline-frontend',
 })
 
-export async function initializeKeycloak() {
-  return keycloak.init({ onLoad: 'check-sso', pkceMethod: 'S256', checkLoginIframe: false })
+export async function initializeKeycloak(): Promise<boolean> {
+  try {
+    // Omit onLoad to prevent automatic check-sso browser redirect (prompt=none) on page load.
+    // Keycloak will still automatically parse authorization code from URL if returning from login.
+    return await keycloak.init({
+      pkceMethod: 'S256',
+      checkLoginIframe: false,
+    })
+  } catch (error) {
+    console.warn('Keycloak authentication server is currently unreachable or offline:', error)
+    return false
+  }
 }
 
 export function currentUser(): AuthenticatedUser | null {
@@ -45,8 +55,12 @@ export function logout() {
   return keycloak.logout({ redirectUri: window.location.origin })
 }
 
-export async function accessToken() {
-  if (!keycloak.authenticated) return null
-  await keycloak.updateToken(30)
-  return keycloak.token ?? null
+export async function accessToken(): Promise<string | null> {
+  try {
+    if (!keycloak.authenticated) return null
+    await keycloak.updateToken(30)
+    return keycloak.token ?? null
+  } catch {
+    return null
+  }
 }

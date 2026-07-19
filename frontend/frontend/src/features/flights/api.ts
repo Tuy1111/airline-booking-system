@@ -2,12 +2,15 @@ import { apiRequest } from '../../shared/api/http'
 import { serviceBases } from '../../shared/config/services'
 import type {
   Airline,
+  AirlineCreateRequest,
   Airport,
+  AirportCreateRequest,
   FlightCreateRequest,
   FlightDetail,
   FlightSearchParams,
   FlightStatusUpdateRequest,
   FlightSummary,
+  RouteCreateRequest,
   RouteInfo,
   SeatInfo,
   SeatMapItem,
@@ -46,6 +49,13 @@ export const flightApi = {
       { method: 'PUT' },
     )
   },
+  bookSeat(flightId: number, seatNo: string) {
+    return apiRequest<SeatInfo>(
+      baseUrl,
+      `${root}/flights/${flightId}/seats/${encodeURIComponent(seatNo)}/book`,
+      { method: 'PUT' },
+    )
+  },
   releaseSeat(flightId: number, seatNo: string) {
     return apiRequest<SeatInfo>(
       baseUrl,
@@ -65,13 +75,42 @@ export const flightApi = {
       body: request,
     })
   },
+  updateFlight(id: number, request: Partial<FlightCreateRequest>) {
+    return apiRequest<FlightDetail>(baseUrl, `${root}/flights/${id}`, {
+      method: 'PUT',
+      body: request,
+    })
+  },
+  deleteFlight(id: number) {
+    return apiRequest<void>(baseUrl, `${root}/flights/${id}`, {
+      method: 'DELETE',
+    })
+  },
   getAirports() {
     return apiRequest<Airport[]>(baseUrl, `${root}/airports`)
+  },
+  createAirport(request: AirportCreateRequest) {
+    return apiRequest<Airport>(baseUrl, `${root}/airports`, {
+      method: 'POST',
+      body: request,
+    })
   },
   getAirlines() {
     return apiRequest<Airline[]>(baseUrl, `${root}/airlines`)
   },
+  createAirline(request: AirlineCreateRequest) {
+    return apiRequest<Airline>(baseUrl, `${root}/airlines`, {
+      method: 'POST',
+      body: request,
+    })
+  },
   getRoutes() {
     return apiRequest<RouteInfo[]>(baseUrl, `${root}/routes`)
+  },
+  createRoute(request: RouteCreateRequest) {
+    return apiRequest<RouteInfo>(baseUrl, `${root}/routes`, {
+      method: 'POST',
+      body: request,
+    })
   },
 }

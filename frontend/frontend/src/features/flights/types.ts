@@ -63,7 +63,19 @@ export interface Airport {
   country: string
 }
 
+export interface AirportCreateRequest {
+  iataCode: string
+  name: string
+  city: string
+  country: string
+}
+
 export interface Airline {
+  code: string
+  name: string
+}
+
+export interface AirlineCreateRequest {
   code: string
   name: string
 }
@@ -77,6 +89,12 @@ export interface RouteInfo {
   toAirportName: string
   toCity: string
   distanceKm: number | null
+}
+
+export interface RouteCreateRequest {
+  fromAirport: string
+  toAirport: string
+  distanceKm: number
 }
 
 export interface FlightCreateRequest {

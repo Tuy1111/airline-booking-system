@@ -93,8 +93,21 @@ jobs:
             if ! docker compose -f docker-compose.prod.yml up -d --build --remove-orphans; then
               echo "Deployment failed; collecting container diagnostics..."
               docker compose -f docker-compose.prod.yml ps -a || true
-              docker logs --tail 200 abs-rabbitmq || true
-              docker inspect --format '{{json .State.Health}}' abs-rabbitmq || true
+
+              # Report the containers that can actually block the dependency
+              # graph. The previous diagnostics always tailed RabbitMQ even when
+              # another service was the one that failed.
+              for container_id in $(docker compose -f docker-compose.prod.yml ps -aq); do
+                container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's#^/##')
+                container_status=$(docker inspect --format '{{.State.Status}}' "$container_id")
+                container_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")
+
+                echo "$container_name: status=$container_status health=$container_health"
+                if [ "$container_status" != "running" ] || { [ "$container_health" != "healthy" ] && [ "$container_health" != "none" ]; }; then
+                  docker logs --tail 200 "$container_id" || true
+                  docker inspect --format '{{json .State}}' "$container_id" || true
+                fi
+              done
               exit 1
             fi
             docker image prune -f

@@ -12,6 +12,9 @@ export interface AuthenticatedUser {
   roles: string[]
 }
 
+const TOKEN_KEY = 'kc_token'
+const REFRESH_TOKEN_KEY = 'kc_refreshToken'
+
 export const keycloak = new Keycloak({
   url: import.meta.env.VITE_KEYCLOAK_URL ?? 'http://localhost:8180',
   realm: import.meta.env.VITE_KEYCLOAK_REALM ?? 'airline-booking',
@@ -20,14 +23,44 @@ export const keycloak = new Keycloak({
 
 export async function initializeKeycloak(): Promise<boolean> {
   try {
-    // Omit onLoad to prevent automatic check-sso browser redirect (prompt=none) on page load.
-    // Keycloak will still automatically parse authorization code from URL if returning from login.
-    return await keycloak.init({
+    const savedToken = localStorage.getItem(TOKEN_KEY) || undefined
+    const savedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY) || undefined
+
+    const authenticated = await keycloak.init({
+      token: savedToken,
+      refreshToken: savedRefreshToken,
       pkceMethod: 'S256',
       checkLoginIframe: false,
     })
+
+    if (authenticated && keycloak.token && keycloak.refreshToken) {
+      localStorage.setItem(TOKEN_KEY, keycloak.token)
+      localStorage.setItem(REFRESH_TOKEN_KEY, keycloak.refreshToken)
+    } else if (!authenticated) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+    }
+
+    keycloak.onAuthSuccess = () => {
+      if (keycloak.token) localStorage.setItem(TOKEN_KEY, keycloak.token)
+      if (keycloak.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, keycloak.refreshToken)
+    }
+
+    keycloak.onAuthRefreshSuccess = () => {
+      if (keycloak.token) localStorage.setItem(TOKEN_KEY, keycloak.token)
+      if (keycloak.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, keycloak.refreshToken)
+    }
+
+    keycloak.onAuthLogout = () => {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+    }
+
+    return authenticated
   } catch (error) {
     console.warn('Keycloak authentication server is currently unreachable or offline:', error)
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
     return false
   }
 }
@@ -52,6 +85,8 @@ export function register() {
 }
 
 export function logout() {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
   return keycloak.logout({ redirectUri: window.location.origin })
 }
 
@@ -59,8 +94,12 @@ export async function accessToken(): Promise<string | null> {
   try {
     if (!keycloak.authenticated) return null
     await keycloak.updateToken(30)
+    if (keycloak.token) localStorage.setItem(TOKEN_KEY, keycloak.token)
+    if (keycloak.refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, keycloak.refreshToken)
     return keycloak.token ?? null
   } catch {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
     return null
   }
 }

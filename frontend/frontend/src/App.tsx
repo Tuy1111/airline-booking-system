@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import './App.css'
 import { Header } from './components/Header'
 import { HeroSearch } from './components/HeroSearch'
+import { PopularDestinations } from './components/PopularDestinations'
 import { FlightResults } from './components/FlightResults'
 import { SeatPicker } from './components/SeatPicker'
 import { PassengerPayment } from './components/PassengerPayment'
@@ -9,6 +10,7 @@ import { MyBookingsETicket } from './components/MyBookingsETicket'
 import { UserProfileModal } from './components/UserProfileModal'
 import { NotificationDrawer } from './components/NotificationDrawer'
 import { AdminDashboard } from './components/AdminDashboard'
+import { ToastContainer, type ToastMessage } from './components/ToastContainer'
 
 import { bookingApi } from './features/bookings/api'
 import type { BookingDetail, HoldSeatResponse } from './features/bookings/types'
@@ -36,103 +38,6 @@ import {
   logout as keycloakLogout,
   register as keycloakRegister,
 } from './shared/auth/keycloak'
-
-const DEFAULT_AIRPORTS: Airport[] = [
-  { iataCode: 'HAN', name: 'Sân bay Quốc tế Nội Bài', city: 'Hà Nội', country: 'Vietnam' },
-  { iataCode: 'SGN', name: 'Sân bay Quốc tế Tân Sơn Nhất', city: 'TP. Hồ Chí Minh', country: 'Vietnam' },
-  { iataCode: 'DAD', name: 'Sân bay Quốc tế Đà Nẵng', city: 'Đà Nẵng', country: 'Vietnam' },
-  { iataCode: 'PQC', name: 'Sân bay Quốc tế Phú Quốc', city: 'Phú Quốc', country: 'Vietnam' },
-  { iataCode: 'CXR', name: 'Sân bay Quốc tế Cam Ranh', city: 'Nha Trang', country: 'Vietnam' },
-]
-
-const DEFAULT_AIRLINES: Airline[] = [
-  { code: 'VN', name: 'Vietnam Airlines' },
-  { code: 'VJ', name: 'Vietjet Air' },
-  { code: 'QH', name: 'Bamboo Airways' },
-]
-
-const DEFAULT_ROUTES: RouteInfo[] = [
-  { id: 1, fromAirportCode: 'HAN', fromAirportName: 'Nội Bài', fromCity: 'Hà Nội', toAirportCode: 'SGN', toAirportName: 'Tân Sơn Nhất', toCity: 'TP. Hồ Chí Minh', distanceKm: 1160 },
-  { id: 2, fromAirportCode: 'HAN', fromAirportName: 'Nội Bài', fromCity: 'Hà Nội', toAirportCode: 'DAD', toAirportName: 'Đà Nẵng', toCity: 'Đà Nẵng', distanceKm: 600 },
-  { id: 3, fromAirportCode: 'SGN', fromAirportName: 'Tân Sơn Nhất', fromCity: 'TP. Hồ Chí Minh', toAirportCode: 'PQC', toAirportName: 'Phú Quốc', toCity: 'Phú Quốc', distanceKm: 300 },
-]
-
-const DEFAULT_FLIGHTS: FlightSummary[] = [
-  {
-    id: 10,
-    flightNo: 'VN123',
-    airlineCode: 'VN',
-    airlineName: 'Vietnam Airlines',
-    fromAirport: 'HAN',
-    fromCity: 'Hà Nội',
-    toAirport: 'SGN',
-    toCity: 'TP. Hồ Chí Minh',
-    departureTime: new Date(Date.now() + 7200000).toISOString(),
-    arrivalTime: new Date(Date.now() + 15000000).toISOString(),
-    basePrice: 1400000,
-    currentPrice: 1540000,
-    aircraftType: 'Airbus A321',
-    status: 'SCHEDULED',
-    availableSeats: 42,
-  },
-  {
-    id: 11,
-    flightNo: 'VJ456',
-    airlineCode: 'VJ',
-    airlineName: 'Vietjet Air',
-    fromAirport: 'HAN',
-    fromCity: 'Hà Nội',
-    toAirport: 'SGN',
-    toCity: 'TP. Hồ Chí Minh',
-    departureTime: new Date(Date.now() + 18000000).toISOString(),
-    arrivalTime: new Date(Date.now() + 25800000).toISOString(),
-    basePrice: 990000,
-    currentPrice: 1150000,
-    aircraftType: 'Airbus A320',
-    status: 'SCHEDULED',
-    availableSeats: 18,
-  },
-  {
-    id: 12,
-    flightNo: 'QH789',
-    airlineCode: 'QH',
-    airlineName: 'Bamboo Airways',
-    fromAirport: 'HAN',
-    fromCity: 'Hà Nội',
-    toAirport: 'SGN',
-    toCity: 'TP. Hồ Chí Minh',
-    departureTime: new Date(Date.now() + 32000000).toISOString(),
-    arrivalTime: new Date(Date.now() + 39800000).toISOString(),
-    basePrice: 1650000,
-    currentPrice: 1800000,
-    aircraftType: 'Boeing 787-9',
-    status: 'SCHEDULED',
-    availableSeats: 35,
-  },
-]
-
-const generateMockSeats = (_flightId: number): SeatMapItem[] => {
-  const seats: SeatMapItem[] = []
-  const rows = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-  const letters = ['A', 'B', 'C', 'D', 'E', 'F']
-
-  rows.forEach((row) => {
-    letters.forEach((letter) => {
-      const seatNo = `${row}${letter}`
-      const seatClass = row <= 3 ? 'BUSINESS' : 'ECONOMY'
-      let status: 'AVAILABLE' | 'HELD' | 'BOOKED' = 'AVAILABLE'
-      if ((row === 2 && letter === 'B') || (row === 5 && letter === 'C')) status = 'HELD'
-      if ((row === 1 && letter === 'A') || (row === 4 && letter === 'D')) status = 'BOOKED'
-      seats.push({
-        seatNo,
-        seatClass: seatClass as any,
-        status,
-        priceFactor: seatClass === 'BUSINESS' ? 1.5 : 1.0,
-      })
-    })
-  })
-  return seats
-}
 
 function dateInputValue(date = new Date()) {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -173,23 +78,37 @@ function durationLabel(start: string, end: string) {
   return `${hours}h ${remainder}m`
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export function App() {
   const [auth] = useState(() => currentUser())
   const [activeTab, setActiveTab] = useState<'search' | 'bookings' | 'profile' | 'admin'>('search')
-  const [step, setStep] = useState<'search' | 'seat' | 'passenger-payment'>('search')
+  const [step, setStep] = useState<'home' | 'results' | 'seat' | 'passenger-payment'>('home')
   const [tripType, setTripType] = useState<'one-way' | 'round-trip'>('round-trip')
 
-  const [notice, setNotice] = useState('')
-  const [error, setError] = useState('')
+  // Toast Notification System
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  const addToast = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
+    const id = Date.now().toString() + Math.random().toString().slice(2, 6)
+    setToasts((prev) => [...prev, { id, type, message }])
+  }
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }
+
   const [isSearching, setIsSearching] = useState(false)
   const [isHolding, setIsHolding] = useState(false)
   const [isCreatingPayment, setIsCreatingPayment] = useState(false)
   const [isProfileUpdating, setIsProfileUpdating] = useState(false)
 
-  // Master Data
-  const [airports, setAirports] = useState<Airport[]>(DEFAULT_AIRPORTS)
-  const [airlines, setAirlines] = useState<Airline[]>(DEFAULT_AIRLINES)
-  const [routes, setRoutes] = useState<RouteInfo[]>(DEFAULT_ROUTES)
+  // Master Data loaded directly from backend API
+  const [airports, setAirports] = useState<Airport[]>([])
+  const [airlines, setAirlines] = useState<Airline[]>([])
+  const [routes, setRoutes] = useState<RouteInfo[]>([])
 
   // Search & Flight State
   const [search, setSearch] = useState<FlightSearchParams>({
@@ -206,8 +125,8 @@ export function App() {
     order: 'asc',
   })
 
-  const [flights, setFlights] = useState<FlightSummary[]>(DEFAULT_FLIGHTS)
-  const [upcomingFlights, setUpcomingFlights] = useState<FlightSummary[]>(DEFAULT_FLIGHTS)
+  const [flights, setFlights] = useState<FlightSummary[]>([])
+  const [upcomingFlights, setUpcomingFlights] = useState<FlightSummary[]>([])
   const [selectedFlight, setSelectedFlight] = useState<FlightDetail | null>(null)
   const [seats, setSeats] = useState<SeatMapItem[]>([])
   const [selectedSeat, setSelectedSeat] = useState('')
@@ -228,33 +147,30 @@ export function App() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false)
 
-  // Load Initial Master Data & Initial Searches
+  // Fetch real master data from backend APIs on startup
   useEffect(() => {
     flightApi
       .getAirports()
-      .then((res) => setAirports(res?.length ? res : DEFAULT_AIRPORTS))
-      .catch(() => setAirports(DEFAULT_AIRPORTS))
+      .then(setAirports)
+      .catch((err) => console.warn('Airports API error:', err))
 
     flightApi
       .getAirlines()
-      .then((res) => setAirlines(res?.length ? res : DEFAULT_AIRLINES))
-      .catch(() => setAirlines(DEFAULT_AIRLINES))
+      .then(setAirlines)
+      .catch((err) => console.warn('Airlines API error:', err))
 
     flightApi
       .getRoutes()
-      .then((res) => setRoutes(res?.length ? res : DEFAULT_ROUTES))
-      .catch(() => setRoutes(DEFAULT_ROUTES))
+      .then(setRoutes)
+      .catch((err) => console.warn('Routes API error:', err))
 
     flightApi
       .upcoming(24)
-      .then((res) => setUpcomingFlights(res?.length ? res : DEFAULT_FLIGHTS))
-      .catch(() => setUpcomingFlights(DEFAULT_FLIGHTS))
-
-    // Load initial flight search
-    handleSearch()
+      .then(setUpcomingFlights)
+      .catch((err) => console.warn('Upcoming flights API error:', err))
   }, [])
 
-  // Load User Data if logged in
+  // Fetch real User Data if logged in
   useEffect(() => {
     if (auth) {
       loadUserBookings()
@@ -267,27 +183,8 @@ export function App() {
     try {
       const p = await userApi.getProfile(1)
       setUserProfile(p)
-    } catch {
-      setUserProfile({
-        id: 1,
-        email: auth?.email || 'user@example.com',
-        status: 'ACTIVE',
-        roles: auth?.roles || ['USER'],
-        fullName: auth?.fullName || 'Nguyen Van A',
-        phone: '0900000000',
-        dateOfBirth: '1995-05-20',
-        gender: 'MALE',
-        nationality: 'VNM',
-        passportNumber: 'P1234567',
-        passportCountry: 'VNM',
-        passportExpiry: '2030-12-31',
-        kycStatus: 'VERIFIED',
-        loyaltyTier: 'GOLD',
-        milesBalance: 5400,
-        lifetimeMiles: 12000,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-      })
+    } catch (err) {
+      console.warn('Could not load user profile:', err)
     }
   }
 
@@ -295,8 +192,8 @@ export function App() {
     try {
       const res = await bookingApi.getMine()
       setUserBookings(res.content || [])
-    } catch {
-      // Ignore
+    } catch (err) {
+      console.warn('Could not load user bookings:', err)
     }
   }
 
@@ -304,56 +201,45 @@ export function App() {
     try {
       const res = await notificationApi.mine()
       setNotifications(res.content || [])
-    } catch {
-      // Ignore
+    } catch (err) {
+      console.warn('Could not load notifications:', err)
     }
   }
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setIsSearching(true)
-    setError('')
     try {
       const res = await flightApi.searchFlights(search)
-      setFlights(res?.length ? res : DEFAULT_FLIGHTS)
-    } catch {
-      // Offline fallback
-      setFlights(DEFAULT_FLIGHTS)
+      setFlights(res || [])
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+      setFlights([])
     } finally {
       setIsSearching(false)
+      setStep('results')
     }
   }
 
+  const handleSelectPromoRoute = (from: string, to: string) => {
+    setSearch((prev) => ({ ...prev, from, to }))
+    handleSearch()
+  }
+
   const handleSelectFlight = async (summary: FlightSummary) => {
-    setError('')
     try {
       const [detail, seatMap] = await Promise.all([
-        flightApi.getFlight(summary.id).catch(() => ({
-          ...summary,
-          totalSeats: 180,
-          heldSeats: 4,
-          bookedSeats: 12,
-        })),
-        flightApi.getSeatMap(summary.id).catch(() => generateMockSeats(summary.id)),
+        flightApi.getFlight(summary.id),
+        flightApi.getSeatMap(summary.id),
       ])
       setSelectedFlight(detail)
-      setSeats(seatMap?.length ? seatMap : generateMockSeats(summary.id))
+      setSeats(seatMap || [])
       setSelectedSeat('')
       setHoldResult(null)
       setPayment(null)
       setStep('seat')
-    } catch {
-      setSelectedFlight({
-        ...summary,
-        totalSeats: 180,
-        heldSeats: 4,
-        bookedSeats: 12,
-      })
-      setSeats(generateMockSeats(summary.id))
-      setSelectedSeat('')
-      setHoldResult(null)
-      setPayment(null)
-      setStep('seat')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -365,7 +251,6 @@ export function App() {
     }
     if (!selectedFlight || !selectedSeat) return
     setIsHolding(true)
-    setError('')
     try {
       const res = await bookingApi.holdSeat({
         flightId: selectedFlight.id,
@@ -374,22 +259,10 @@ export function App() {
         passengerPassport,
       })
       setHoldResult(res)
-      setNotice('Giữ ghế thành công! Vui lòng tiến hành thanh toán.')
+      addToast('success', 'Giữ ghế thành công! Vui lòng tiến hành thanh toán.')
       loadUserBookings()
-    } catch {
-      // Fallback hold result for offline dev testing
-      const mockHold: HoldSeatResponse = {
-        bookingId: Math.floor(10 + Math.random() * 90),
-        bookingCode: `BK${Date.now().toString().slice(-8)}`,
-        flightId: selectedFlight.id,
-        seatNo: selectedSeat,
-        price: selectedFlight.currentPrice || selectedFlight.basePrice,
-        currency: 'VND',
-        holdExpiresAt: new Date(Date.now() + 600000).toISOString(),
-        message: 'Seat held successfully (Offline Test Mode).',
-      }
-      setHoldResult(mockHold)
-      setNotice('Giữ ghế thành công! (Chế độ thử nghiệm).')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     } finally {
       setIsHolding(false)
     }
@@ -398,7 +271,6 @@ export function App() {
   const handleCreatePayment = async () => {
     if (!holdResult) return
     setIsCreatingPayment(true)
-    setError('')
     try {
       const res = await paymentApi.createPayment({
         bookingId: holdResult.bookingId,
@@ -407,23 +279,9 @@ export function App() {
         method: 'BANK_TRANSFER',
       })
       setPayment(res)
-      setNotice('Đã tạo mã QR VietQR cho đơn hàng!')
-    } catch {
-      // Fallback payment object for offline dev testing
-      const mockPayment: PaymentResponse = {
-        id: 40,
-        paymentCode: `PAY${Date.now().toString().slice(-8)}`,
-        bookingId: holdResult.bookingId,
-        amount: holdResult.price,
-        currency: 'VND',
-        status: 'PENDING',
-        gateway: 'SEPAY',
-        transferCode: `ABS${holdResult.bookingId}XYZ`,
-        qrUrl: `https://img.vietqr.io/image/MBBank-0123456789-compact2.png?amount=${holdResult.price}&addInfo=ABS${holdResult.bookingId}XYZ`,
-        expiresAt: new Date(Date.now() + 600000).toISOString(),
-      }
-      setPayment(mockPayment)
-      setNotice('Đã tạo mã QR VietQR thanh toán SePay (Chế độ thử nghiệm)!')
+      addToast('success', 'Đã tạo mã QR VietQR cho đơn hàng!')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     } finally {
       setIsCreatingPayment(false)
     }
@@ -435,26 +293,23 @@ export function App() {
       const res = await paymentApi.getPayment(payment.id)
       setPayment(res)
       if (res.status === 'SUCCESS') {
-        setNotice('Thanh toán thành công! Vé của bạn đã được xác nhận.')
+        addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
         loadUserBookings()
       } else {
-        setNotice(`Trạng thái thanh toán hiện tại: ${res.status}`)
+        addToast('info', `Trạng thái thanh toán hiện tại: ${res.status}`)
       }
-    } catch {
-      // Mock payment confirm for testing
-      setPayment((prev) => (prev ? { ...prev, status: 'SUCCESS' } : null))
-      setNotice('Đã xác nhận thanh toán thành công (Chế độ thử nghiệm)!')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
   const handleCancelBooking = async (id: number) => {
     try {
       await bookingApi.cancelBooking(id)
-      setNotice(`Đã hủy booking #${id} thành công!`)
+      addToast('success', `Đã hủy booking #${id} thành công!`)
       loadUserBookings()
-    } catch {
-      setUserBookings((prev) => prev.filter((b) => b.id !== id))
-      setNotice(`Đã hủy booking #${id}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -464,10 +319,9 @@ export function App() {
     try {
       const updated = await userApi.updateProfile(1, data)
       setUserProfile(updated)
-      setNotice('Đã cập nhật thông tin cá nhân!')
-    } catch {
-      setUserProfile((prev: any) => ({ ...prev, ...data }))
-      setNotice('Đã cập nhật thông tin!')
+      addToast('success', 'Đã cập nhật thông tin cá nhân!')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     } finally {
       setIsProfileUpdating(false)
     }
@@ -478,16 +332,9 @@ export function App() {
     try {
       const updated = await userApi.submitPassport(1, data)
       setUserProfile(updated)
-      setNotice('Đã gửi thông tin hộ chiếu xác minh!')
-    } catch {
-      setUserProfile((prev: any) => ({
-        ...prev,
-        passportNumber: data.passportNumber,
-        passportCountry: data.issuingCountry,
-        passportExpiry: data.expiryDate,
-        kycStatus: 'VERIFIED',
-      }))
-      setNotice('Đã cập nhật thông tin hộ chiếu!')
+      addToast('success', 'Đã gửi thông tin hộ chiếu xác minh!')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     } finally {
       setIsProfileUpdating(false)
     }
@@ -497,13 +344,9 @@ export function App() {
     try {
       const updated = await userApi.earnMiles(1, { miles, reason })
       setUserProfile(updated)
-      setNotice(`Đã cộng ${miles} dặm thưởng thành công!`)
-    } catch {
-      setUserProfile((prev: any) => ({
-        ...prev,
-        milesBalance: (prev?.milesBalance || 0) + miles,
-      }))
-      setNotice(`Đã cộng ${miles} dặm!`)
+      addToast('success', `Đã cộng ${miles} dặm thưởng thành công!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -511,13 +354,9 @@ export function App() {
     try {
       const updated = await userApi.redeemMiles(1, { miles, reason })
       setUserProfile(updated)
-      setNotice(`Đã đổi ${miles} dặm thưởng thành công!`)
-    } catch {
-      setUserProfile((prev: any) => ({
-        ...prev,
-        milesBalance: Math.max(0, (prev?.milesBalance || 0) - miles),
-      }))
-      setNotice(`Đã đổi ${miles} dặm!`)
+      addToast('success', `Đã đổi ${miles} dặm thưởng thành công!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -525,52 +364,30 @@ export function App() {
   const handleCreateFlight = async (req: FlightCreateRequest) => {
     try {
       await flightApi.createFlight(req)
-      setNotice('Đã tạo chuyến bay mới thành công!')
+      addToast('success', 'Đã tạo chuyến bay mới thành công!')
       handleSearch()
-    } catch {
-      const newMockFlight: FlightSummary = {
-        id: Date.now(),
-        flightNo: req.flightNo,
-        airlineCode: req.airlineCode,
-        airlineName: req.airlineCode === 'VN' ? 'Vietnam Airlines' : 'Vietjet Air',
-        fromAirport: req.fromAirportCode,
-        fromCity: req.fromAirportCode === 'HAN' ? 'Hà Nội' : 'TP. Hồ Chí Minh',
-        toAirport: req.toAirportCode,
-        toCity: req.toAirportCode === 'SGN' ? 'TP. Hồ Chí Minh' : 'Hà Nội',
-        departureTime: req.departureTime,
-        arrivalTime: req.arrivalTime,
-        basePrice: req.basePrice,
-        currentPrice: req.basePrice,
-        aircraftType: req.aircraftType,
-        status: 'SCHEDULED',
-        availableSeats: req.totalSeats,
-      }
-      setFlights((prev) => [newMockFlight, ...prev])
-      setNotice(`Đã tạo chuyến bay ${req.flightNo}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
   const handleDeleteFlight = async (id: number) => {
     try {
       await flightApi.deleteFlight(id)
-      setNotice(`Đã xóa chuyến bay #${id}!`)
+      addToast('success', `Đã xóa chuyến bay #${id}!`)
       handleSearch()
-    } catch {
-      setFlights((prev) => prev.filter((f) => f.id !== id))
-      setNotice(`Đã xóa chuyến bay #${id}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
   const handleUpdateFlightStatus = async (id: number, req: FlightStatusUpdateRequest) => {
     try {
       await flightApi.updateStatus(id, req)
-      setNotice('Đã cập nhật trạng thái chuyến bay!')
+      addToast('success', 'Đã cập nhật trạng thái chuyến bay!')
       handleSearch()
-    } catch {
-      setFlights((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, status: req.status } : f)),
-      )
-      setNotice('Đã cập nhật trạng thái chuyến bay!')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -578,10 +395,9 @@ export function App() {
     try {
       const created = await flightApi.createAirport(data)
       setAirports((prev) => [...prev, created])
-      setNotice(`Đã tạo sân bay ${data.iataCode}!`)
-    } catch {
-      setAirports((prev) => [...prev, data])
-      setNotice(`Đã tạo sân bay ${data.iataCode}!`)
+      addToast('success', `Đã tạo sân bay ${data.iataCode}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -589,10 +405,9 @@ export function App() {
     try {
       const created = await flightApi.createAirline(data)
       setAirlines((prev) => [...prev, created])
-      setNotice(`Đã tạo hãng bay ${data.code}!`)
-    } catch {
-      setAirlines((prev) => [...prev, data])
-      setNotice(`Đã tạo hãng bay ${data.code}!`)
+      addToast('success', `Đã tạo hãng bay ${data.code}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -600,22 +415,9 @@ export function App() {
     try {
       const created = await flightApi.createRoute(data)
       setRoutes((prev) => [...prev, created])
-      setNotice(`Đã tạo đường bay ${data.fromAirport} ➔ ${data.toAirport}!`)
-    } catch {
-      setRoutes((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          fromAirportCode: data.fromAirport,
-          fromAirportName: data.fromAirport,
-          fromCity: data.fromAirport,
-          toAirportCode: data.toAirport,
-          toAirportName: data.toAirport,
-          toCity: data.toAirport,
-          distanceKm: data.distanceKm,
-        },
-      ])
-      setNotice(`Đã tạo đường bay ${data.fromAirport} ➔ ${data.toAirport}!`)
+      addToast('success', `Đã tạo đường bay ${data.fromAirport} ➔ ${data.toAirport}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -629,20 +431,23 @@ export function App() {
       else if (action === 'book') await flightApi.bookSeat(flightId, seatNo)
       else await flightApi.releaseSeat(flightId, seatNo)
 
-      setNotice(`Thao tác ${action} ghế ${seatNo} chuyến bay #${flightId} thành công!`)
-    } catch {
-      setNotice(`Đã thực hiện thao tác ${action} ghế ${seatNo} (Chế độ thử nghiệm)!`)
+      addToast('success', `Thao tác ${action} ghế ${seatNo} chuyến bay #${flightId} thành công!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
+      {/* Floating Toast Container */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       {/* Glass Navigation Header */}
       <Header
         activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab)
-          if (tab === 'search') setStep('search')
+          if (tab === 'search') setStep('home')
         }}
         user={auth}
         onLogin={keycloakLogin}
@@ -653,38 +458,12 @@ export function App() {
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
       />
 
-      {/* Notice & Error Banners */}
-      <div className="pt-20 max-w-6xl mx-auto px-4 space-y-2">
-        {notice && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs font-bold shadow-sm animate-fade-in">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-              <span>{notice}</span>
-            </div>
-            <button onClick={() => setNotice('')} className="text-emerald-500 hover:text-emerald-700">
-              <span className="material-symbols-outlined text-base">close</span>
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs font-bold shadow-sm animate-fade-in">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-red-600">error</span>
-              <span>{error}</span>
-            </div>
-            <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">
-              <span className="material-symbols-outlined text-base">close</span>
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Main Screen Views */}
       <main>
         {activeTab === 'search' && (
           <>
-            {step === 'search' && (
+            {/* SCREEN 1: HOMEPAGE (Trang chủ & Công cụ tìm kiếm) */}
+            {step === 'home' && (
               <>
                 <HeroSearch
                   search={search}
@@ -696,6 +475,58 @@ export function App() {
                   tripType={tripType}
                   setTripType={setTripType}
                 />
+                <PopularDestinations
+                  onSelectRoute={handleSelectPromoRoute}
+                  formatMoney={formatMoney}
+                />
+              </>
+            )}
+
+            {/* SCREEN 2: FLIGHT SEARCH RESULTS (Trang kết quả tìm kiếm riêng biệt) */}
+            {step === 'results' && (
+              <div className="max-w-6xl mx-auto px-4 pt-4">
+                {/* Breadcrumbs */}
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
+                  <button
+                    onClick={() => setStep('home')}
+                    className="hover:text-slate-900 flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-base">home</span> Trang chủ
+                  </button>
+                  <span>/</span>
+                  <span className="text-sky-600 font-extrabold">Kết quả tìm kiếm chuyến bay</span>
+                </div>
+
+                {/* Top Search Summary Banner */}
+                <div className="bg-slate-900 text-white rounded-3xl p-6 mb-8 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center font-bold text-xl">
+                      <span className="material-symbols-outlined text-2xl">flight_takeoff</span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
+                        <span>{search.from}</span>
+                        <span className="material-symbols-outlined text-sky-400 text-base">
+                          arrow_forward
+                        </span>
+                        <span>{search.to}</span>
+                      </h2>
+                      <p className="text-xs text-slate-300 font-semibold mt-0.5">
+                        Ngày đi: {search.date} • {search.passengers} hành khách •{' '}
+                        {tripType === 'round-trip' ? 'Khứ hồi' : 'Một chiều'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setStep('home')}
+                    className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold backdrop-blur-md border border-white/20 transition-all flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-base">edit</span>
+                    Thay đổi tìm kiếm
+                  </button>
+                </div>
+
                 <FlightResults
                   flights={flights}
                   upcomingFlights={upcomingFlights}
@@ -705,43 +536,83 @@ export function App() {
                   formatDateTime={formatDateTime}
                   durationLabel={durationLabel}
                 />
-              </>
+              </div>
             )}
 
+            {/* SCREEN 3: SEAT SELECTION */}
             {step === 'seat' && selectedFlight && (
-              <SeatPicker
-                flight={selectedFlight}
-                seats={seats}
-                selectedSeat={selectedSeat}
-                setSelectedSeat={setSelectedSeat}
-                manualSeat={manualSeat}
-                setManualSeat={setManualSeat}
-                onProceedToPassenger={() => setStep('passenger-payment')}
-                onBackToResults={() => setStep('search')}
-                formatMoney={formatMoney}
-              />
+              <div className="max-w-6xl mx-auto px-4 pt-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
+                  <button
+                    onClick={() => setStep('home')}
+                    className="hover:text-slate-900 flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-base">home</span> Trang chủ
+                  </button>
+                  <span>/</span>
+                  <button onClick={() => setStep('results')} className="hover:text-slate-900">
+                    Kết quả tìm kiếm
+                  </button>
+                  <span>/</span>
+                  <span className="text-sky-600 font-extrabold">Chọn chỗ ngồi</span>
+                </div>
+
+                <SeatPicker
+                  flight={selectedFlight}
+                  seats={seats}
+                  selectedSeat={selectedSeat}
+                  setSelectedSeat={setSelectedSeat}
+                  manualSeat={manualSeat}
+                  setManualSeat={setManualSeat}
+                  onProceedToPassenger={() => setStep('passenger-payment')}
+                  onBackToResults={() => setStep('results')}
+                  formatMoney={formatMoney}
+                />
+              </div>
             )}
 
+            {/* SCREEN 4: PASSENGER INFO & PAYMENT */}
             {step === 'passenger-payment' && selectedFlight && (
-              <PassengerPayment
-                flight={selectedFlight}
-                selectedSeat={selectedSeat}
-                passengerName={passengerName}
-                setPassengerName={setPassengerName}
-                passengerPassport={passengerPassport}
-                setPassengerPassport={setPassengerPassport}
-                onHoldSeat={handleHoldSeat}
-                isHolding={isHolding}
-                holdResult={holdResult}
-                payment={payment}
-                onCreatePayment={handleCreatePayment}
-                onCheckPaymentStatus={handleCheckPaymentStatus}
-                isCreatingPayment={isCreatingPayment}
-                onViewETicket={() => setActiveTab('bookings')}
-                formatMoney={formatMoney}
-                user={auth}
-                onLogin={keycloakLogin}
-              />
+              <div className="max-w-6xl mx-auto px-4 pt-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
+                  <button
+                    onClick={() => setStep('home')}
+                    className="hover:text-slate-900 flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-base">home</span> Trang chủ
+                  </button>
+                  <span>/</span>
+                  <button onClick={() => setStep('results')} className="hover:text-slate-900">
+                    Kết quả tìm kiếm
+                  </button>
+                  <span>/</span>
+                  <button onClick={() => setStep('seat')} className="hover:text-slate-900">
+                    Chọn chỗ ngồi
+                  </button>
+                  <span>/</span>
+                  <span className="text-sky-600 font-extrabold">Thanh toán</span>
+                </div>
+
+                <PassengerPayment
+                  flight={selectedFlight}
+                  selectedSeat={selectedSeat}
+                  passengerName={passengerName}
+                  setPassengerName={setPassengerName}
+                  passengerPassport={passengerPassport}
+                  setPassengerPassport={setPassengerPassport}
+                  onHoldSeat={handleHoldSeat}
+                  isHolding={isHolding}
+                  holdResult={holdResult}
+                  payment={payment}
+                  onCreatePayment={handleCreatePayment}
+                  onCheckPaymentStatus={handleCheckPaymentStatus}
+                  isCreatingPayment={isCreatingPayment}
+                  onViewETicket={() => setActiveTab('bookings')}
+                  formatMoney={formatMoney}
+                  user={auth}
+                  onLogin={keycloakLogin}
+                />
+              </div>
             )}
           </>
         )}

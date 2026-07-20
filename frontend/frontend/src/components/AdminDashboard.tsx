@@ -55,6 +55,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [totalSeats, setTotalSeats] = useState(180)
   const [basePrice, setBasePrice] = useState(1500000)
   const [aircraftType] = useState('Airbus A321')
+  const [flightError, setFlightError] = useState('')
 
   // Update Status Modal State
   const [statusFlight, setStatusFlight] = useState<FlightSummary | null>(null)
@@ -78,8 +79,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [routeFrom, setRouteFrom] = useState('HAN')
   const [routeTo, setRouteTo] = useState('SGN')
   const [routeDistance, setRouteDistance] = useState(1160)
+  const [routeError, setRouteError] = useState('')
 
   const totalRevenue = bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
+
+  const handleCreateFlightSubmit = () => {
+    if (fromAirportCode === toAirportCode) {
+      setFlightError('Sân bay đi và sân bay đến không được trùng nhau!')
+      return
+    }
+    setFlightError('')
+    onCreateFlight({
+      flightNo,
+      fromAirportCode,
+      toAirportCode,
+      airlineCode,
+      departureTime,
+      arrivalTime,
+      totalSeats,
+      basePrice,
+      aircraftType,
+    })
+    setIsCreateModalOpen(false)
+  }
+
+  const handleCreateRouteSubmit = () => {
+    if (routeFrom === routeTo) {
+      setRouteError('Sân bay đi và sân bay đến không được trùng nhau!')
+      return
+    }
+    setRouteError('')
+    onCreateRoute({
+      fromAirport: routeFrom,
+      toAirport: routeTo,
+      distanceKm: routeDistance,
+    })
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 animate-fade-in space-y-8">
@@ -425,19 +460,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* Routes Form */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h4 className="font-bold text-slate-900 text-sm">Thêm đường bay mới</h4>
+            {routeError && (
+              <p className="text-red-600 text-[11px] font-bold">{routeError}</p>
+            )}
             <div className="space-y-2 text-xs">
               <input
                 type="text"
                 placeholder="Sân bay đi (HAN)"
                 value={routeFrom}
-                onChange={(e) => setRouteFrom(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setRouteError('')
+                  setRouteFrom(e.target.value.toUpperCase())
+                }}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold uppercase"
               />
               <input
                 type="text"
                 placeholder="Sân bay đến (SGN)"
                 value={routeTo}
-                onChange={(e) => setRouteTo(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setRouteError('')
+                  setRouteTo(e.target.value.toUpperCase())
+                }}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold uppercase"
               />
               <input
@@ -448,13 +492,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
               />
               <button
-                onClick={() =>
-                  onCreateRoute({
-                    fromAirport: routeFrom,
-                    toAirport: routeTo,
-                    distanceKm: routeDistance,
-                  })
-                }
+                onClick={handleCreateRouteSubmit}
                 className="w-full py-2.5 bg-sky-600 text-white font-bold rounded-xl"
               >
                 + Tạo đường bay
@@ -474,6 +512,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <span className="material-symbols-outlined text-slate-400">close</span>
               </button>
             </div>
+
+            {flightError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs font-bold">
+                {flightError}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
@@ -501,8 +545,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <input
                   type="text"
                   value={fromAirportCode}
-                  onChange={(e) => setFromAirportCode(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                  onChange={(e) => {
+                    setFlightError('')
+                    setFromAirportCode(e.target.value.toUpperCase())
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold uppercase"
                 />
               </div>
 
@@ -511,8 +558,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <input
                   type="text"
                   value={toAirportCode}
-                  onChange={(e) => setToAirportCode(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold"
+                  onChange={(e) => {
+                    setFlightError('')
+                    setToAirportCode(e.target.value.toUpperCase())
+                  }}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold uppercase"
                 />
               </div>
 
@@ -565,20 +615,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 Hủy
               </button>
               <button
-                onClick={() => {
-                  onCreateFlight({
-                    flightNo,
-                    fromAirportCode,
-                    toAirportCode,
-                    airlineCode,
-                    departureTime,
-                    arrivalTime,
-                    totalSeats,
-                    basePrice,
-                    aircraftType,
-                  })
-                  setIsCreateModalOpen(false)
-                }}
+                onClick={handleCreateFlightSubmit}
                 className="px-5 py-2 bg-sky-600 text-white font-bold rounded-xl text-xs"
               >
                 Xác nhận tạo

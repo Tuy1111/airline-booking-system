@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import type { Airline, Airport, FlightSearchParams } from '../features/flights/types'
 import heroBg from '../assets/airline-hero.png'
 
@@ -23,12 +23,55 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
   tripType,
   setTripType,
 }) => {
+  const [validationError, setValidationError] = useState('')
+
   const handleSwapAirports = () => {
+    setValidationError('')
     setSearch((prev) => ({
       ...prev,
       from: prev.to,
       to: prev.from,
     }))
+  }
+
+  const handleFromChange = (newFrom: string) => {
+    setValidationError('')
+    setSearch((prev) => {
+      let newTo = prev.to
+      if (newFrom === prev.to) {
+        // Auto-switch 'to' airport if same as 'from'
+        const alternative =
+          airports.find((ap) => ap.iataCode !== newFrom)?.iataCode ||
+          (newFrom === 'HAN' ? 'SGN' : 'HAN')
+        newTo = alternative
+      }
+      return { ...prev, from: newFrom, to: newTo }
+    })
+  }
+
+  const handleToChange = (newTo: string) => {
+    setValidationError('')
+    setSearch((prev) => {
+      let newFrom = prev.from
+      if (newTo === prev.from) {
+        // Auto-switch 'from' airport if same as 'to'
+        const alternative =
+          airports.find((ap) => ap.iataCode !== newTo)?.iataCode ||
+          (newTo === 'SGN' ? 'HAN' : 'SGN')
+        newFrom = alternative
+      }
+      return { ...prev, from: newFrom, to: newTo }
+    })
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (search.from === search.to) {
+      setValidationError('Điểm đi và điểm đến không được trùng nhau!')
+      return
+    }
+    setValidationError('')
+    onSearch(e)
   }
 
   return (
@@ -62,6 +105,14 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
 
         {/* Search Engine Glass Card */}
         <div className="glass-card p-6 md:p-8 rounded-3xl shadow-2xl border border-white/40">
+          {/* Validation Error Alert */}
+          {validationError && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">error</span>
+              <span>{validationError}</span>
+            </div>
+          )}
+
           {/* Trip Type Selector */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-200/80">
             <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-full border border-slate-200">
@@ -127,7 +178,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
             </div>
           </div>
 
-          <form onSubmit={onSearch} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Search Input Grid */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
               {/* Departure Airport */}
@@ -141,20 +192,31 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                   </span>
                   <select
                     value={search.from}
-                    onChange={(e) => setSearch((prev) => ({ ...prev, from: e.target.value }))}
+                    onChange={(e) => handleFromChange(e.target.value)}
                     className="w-full bg-transparent border-none text-slate-900 font-bold text-sm focus:outline-none cursor-pointer"
                     required
                   >
                     {airports.map((ap) => (
-                      <option key={ap.iataCode} value={ap.iataCode}>
+                      <option
+                        key={ap.iataCode}
+                        value={ap.iataCode}
+                        disabled={ap.iataCode === search.to}
+                      >
                         {ap.city} ({ap.iataCode}) - {ap.name}
+                        {ap.iataCode === search.to ? ' (Đã chọn ở điểm đến)' : ''}
                       </option>
                     ))}
                     {airports.length === 0 && (
                       <>
-                        <option value="HAN">Hà Nội (HAN)</option>
-                        <option value="SGN">TP. Hồ Chí Minh (SGN)</option>
-                        <option value="DAD">Đà Nẵng (DAD)</option>
+                        <option value="HAN" disabled={search.to === 'HAN'}>
+                          Hà Nội (HAN)
+                        </option>
+                        <option value="SGN" disabled={search.to === 'SGN'}>
+                          TP. Hồ Chí Minh (SGN)
+                        </option>
+                        <option value="DAD" disabled={search.to === 'DAD'}>
+                          Đà Nẵng (DAD)
+                        </option>
                       </>
                     )}
                   </select>
@@ -184,20 +246,31 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                   </span>
                   <select
                     value={search.to}
-                    onChange={(e) => setSearch((prev) => ({ ...prev, to: e.target.value }))}
+                    onChange={(e) => handleToChange(e.target.value)}
                     className="w-full bg-transparent border-none text-slate-900 font-bold text-sm focus:outline-none cursor-pointer"
                     required
                   >
                     {airports.map((ap) => (
-                      <option key={ap.iataCode} value={ap.iataCode}>
+                      <option
+                        key={ap.iataCode}
+                        value={ap.iataCode}
+                        disabled={ap.iataCode === search.from}
+                      >
                         {ap.city} ({ap.iataCode}) - {ap.name}
+                        {ap.iataCode === search.from ? ' (Đã chọn ở điểm đi)' : ''}
                       </option>
                     ))}
                     {airports.length === 0 && (
                       <>
-                        <option value="SGN">TP. Hồ Chí Minh (SGN)</option>
-                        <option value="HAN">Hà Nội (HAN)</option>
-                        <option value="PQC">Phú Quốc (PQC)</option>
+                        <option value="SGN" disabled={search.from === 'SGN'}>
+                          TP. Hồ Chí Minh (SGN)
+                        </option>
+                        <option value="HAN" disabled={search.from === 'HAN'}>
+                          Hà Nội (HAN)
+                        </option>
+                        <option value="PQC" disabled={search.from === 'PQC'}>
+                          Phú Quốc (PQC)
+                        </option>
                       </>
                     )}
                   </select>

@@ -53,11 +53,12 @@ docker compose -f docker-compose.prod.yml logs -f booking-service
 | Postgres           | `5555`             | host 5555 -> container 5432; 5 DB tạo tự động |
 | Redis              | nội bộ Docker      | không publish ra host/VPS               |
 | Kafka              | `9092`             | chỉ mở nếu cần debug hoặc client ngoài   |
-| RabbitMQ UI        | `15672`            | guest/guest                              |
+| RabbitMQ AMQP/UI   | nội bộ Docker      | Không public; dùng `RABBIT_USER`/`RABBIT_PASS` |
 | MailHog UI         | `8025`             | xem email đã gửi                         |
 
 > Khi chạy thật chỉ nên mở public cổng `80` cho frontend. Nếu cần debug Gateway trực tiếp
-> mới mở thêm `8080`; các service `8081`–`8085` chỉ được expose trong mạng Docker.
+> mới mở thêm `8080`; các service `8081`–`8085`, RabbitMQ AMQP (`5672`) và Management UI
+> (`15672`) chỉ được expose trong mạng Docker.
 
 ## 5. Monitoring (tùy chọn)
 

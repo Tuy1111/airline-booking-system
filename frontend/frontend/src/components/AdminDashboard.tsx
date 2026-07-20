@@ -117,23 +117,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 animate-fade-in space-y-8">
+    <div className="admin-dashboard max-w-7xl mx-auto px-4 py-8 animate-fade-in space-y-8">
       {/* Admin Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900 text-white p-6 rounded-3xl shadow-xl">
+      <div className="admin-hero flex flex-wrap items-center justify-between gap-4 bg-slate-900 text-white p-6 rounded-3xl shadow-xl">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center font-bold text-xl shadow-lg">
             <span className="material-symbols-outlined text-2xl">admin_panel_settings</span>
           </div>
           <div>
-            <h2 className="text-2xl font-black tracking-tight">Horizon Air Admin Workspace</h2>
+            <h2 className="text-2xl font-black tracking-tight">SkySwift operations</h2>
             <p className="text-xs text-sky-300 font-bold">
-              Bảng điều khiển & Quản trị hệ thống chuyến bay
+              Bảng điều khiển và quản trị chuyến bay
             </p>
           </div>
         </div>
 
         {/* Sub-Tabs Selector */}
-        <div className="flex items-center gap-1 bg-white/10 p-1.5 rounded-2xl backdrop-blur-md border border-white/10 text-xs font-bold">
+        <div className="admin-tabs flex items-center gap-1 bg-white/10 p-1.5 rounded-2xl backdrop-blur-md border border-white/10 text-xs font-bold">
           <button
             onClick={() => setSubTab('overview')}
             className={`px-4 py-2 rounded-xl transition-all ${
@@ -173,7 +173,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {subTab === 'overview' && (
         <div className="space-y-6">
           {/* Key Metrics Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="admin-metrics grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-1">
               <span className="text-xs font-bold text-slate-400 uppercase">Tổng số chuyến bay</span>
               <div className="text-3xl font-black text-slate-900">{flights.length}</div>
@@ -200,7 +200,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {/* Quick Actions & Recent Departures */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="admin-data-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-lg font-bold text-slate-900">Danh sách chuyến bay gần đây</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -223,10 +223,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="py-3 px-2">{formatDateTime(f.departureTime)}</td>
                       <td className="py-3 px-2 text-orange-600 font-bold">{formatMoney(f.currentPrice)}</td>
                       <td className="py-3 px-2">
-                        <span className="badge badge-info">{f.status}</span>
+                        <span className={`badge status-${f.status.toLowerCase()}`}>{f.status}</span>
                       </td>
                     </tr>
                   ))}
+                  {flights.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-10 px-3 text-center text-slate-500">
+                        Chưa có chuyến bay. Tạo chuyến bay đầu tiên trong mục Quản lý chuyến bay.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -249,7 +256,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {/* Flights Table */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm overflow-x-auto">
+          <div className="admin-data-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 uppercase font-bold">
@@ -277,7 +284,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <td className="py-3 px-3 text-orange-600 font-bold">{formatMoney(f.currentPrice)}</td>
                     <td className="py-3 px-3 font-bold text-emerald-600">{f.availableSeats}</td>
                     <td className="py-3 px-3">
-                      <span className="badge badge-info">{f.status}</span>
+                      <span className={`badge status-${f.status.toLowerCase()}`}>{f.status}</span>
                     </td>
                     <td className="py-3 px-3 text-right space-x-2">
                       <button
@@ -300,12 +307,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </td>
                   </tr>
                 ))}
+                {flights.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="py-12 px-3 text-center text-slate-500">
+                      Danh sách chuyến bay đang trống.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Seat Override Box */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="admin-seat-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h4 className="font-bold text-slate-900 text-sm">Quản trị trạng thái ghế nội bộ</h4>
             <div className="flex flex-wrap gap-3 items-center text-xs">
               <label className="font-bold text-slate-600">ID Chuyến bay:</label>
@@ -349,7 +363,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Sub-Tab 3: BOOKING MANAGEMENT */}
       {subTab === 'bookings' && (
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div className="admin-data-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
           <h3 className="text-xl font-extrabold text-slate-900">Quản lý tất cả đơn đặt chỗ</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
@@ -374,10 +388,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <td className="py-3 px-3 font-bold text-sky-600">{b.items?.[0]?.seatNo || 'N/A'}</td>
                     <td className="py-3 px-3 text-orange-600 font-bold">{formatMoney(b.totalAmount)}</td>
                     <td className="py-3 px-3">
-                      <span className="badge badge-info">{b.status}</span>
+                      <span className={`badge status-${b.status.toLowerCase()}`}>{b.status}</span>
                     </td>
                   </tr>
                 ))}
+                {bookings.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-12 px-3 text-center text-slate-500">
+                      Chưa có đơn đặt chỗ nào trong hệ thống.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -386,9 +407,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Sub-Tab 4: AIRPORTS, AIRLINES & ROUTES */}
       {subTab === 'resources' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="admin-resource-grid grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Airports Form */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="admin-resource-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h4 className="font-bold text-slate-900 text-sm">Thêm sân bay mới</h4>
             <div className="space-y-2 text-xs">
               <input
@@ -429,7 +450,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {/* Airlines Form */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="admin-resource-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h4 className="font-bold text-slate-900 text-sm">Thêm hãng bay mới</h4>
             <div className="space-y-2 text-xs">
               <input
@@ -458,7 +479,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
 
           {/* Routes Form */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
+          <div className="admin-resource-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h4 className="font-bold text-slate-900 text-sm">Thêm đường bay mới</h4>
             {routeError && (
               <p className="text-red-600 text-[11px] font-bold">{routeError}</p>

@@ -3,7 +3,7 @@ import './App.css'
 import { Header } from './components/Header'
 import { HeroSearch } from './components/HeroSearch'
 import { PopularDestinations } from './components/PopularDestinations'
-import { FlightResults } from './components/FlightResults'
+import { FlightSearchPage } from './components/FlightSearchPage'
 import { SeatPicker } from './components/SeatPicker'
 import { PassengerPayment } from './components/PassengerPayment'
 import { MyBookingsETicket } from './components/MyBookingsETicket'
@@ -84,8 +84,8 @@ function getErrorMessage(error: unknown) {
 
 export function App() {
   const [auth] = useState(() => currentUser())
-  const [activeTab, setActiveTab] = useState<'search' | 'bookings' | 'profile' | 'admin'>('search')
-  const [step, setStep] = useState<'home' | 'results' | 'seat' | 'passenger-payment'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'bookings' | 'profile' | 'admin'>('home')
+  const [step, setStep] = useState<'list' | 'seat' | 'passenger-payment'>('list')
   const [tripType, setTripType] = useState<'one-way' | 'round-trip'>('round-trip')
 
   // Toast Notification System
@@ -126,7 +126,6 @@ export function App() {
   })
 
   const [flights, setFlights] = useState<FlightSummary[]>([])
-  const [upcomingFlights, setUpcomingFlights] = useState<FlightSummary[]>([])
   const [selectedFlight, setSelectedFlight] = useState<FlightDetail | null>(null)
   const [seats, setSeats] = useState<SeatMapItem[]>([])
   const [selectedSeat, setSelectedSeat] = useState('')
@@ -163,11 +162,6 @@ export function App() {
       .getRoutes()
       .then(setRoutes)
       .catch((err) => console.warn('Routes API error:', err))
-
-    flightApi
-      .upcoming(24)
-      .then(setUpcomingFlights)
-      .catch((err) => console.warn('Upcoming flights API error:', err))
   }, [])
 
   // Fetch real User Data if logged in
@@ -217,13 +211,15 @@ export function App() {
       setFlights([])
     } finally {
       setIsSearching(false)
-      setStep('results')
+      setActiveTab('search')
+      setStep('list')
     }
   }
 
   const handleSelectPromoRoute = (from: string, to: string) => {
     setSearch((prev) => ({ ...prev, from, to }))
-    handleSearch()
+    setActiveTab('search')
+    setStep('list')
   }
 
   const handleSelectFlight = async (summary: FlightSummary) => {
@@ -438,7 +434,8 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-16">
+    <div className={`site-shell ${activeTab === 'admin' ? 'admin-mode' : ''}`}>
+      <a className="skip-link" href="#main-content">Bỏ qua điều hướng</a>
       {/* Floating Toast Container */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
@@ -447,7 +444,7 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab)
-          if (tab === 'search') setStep('home')
+          if (tab === 'search') setStep('list')
         }}
         user={auth}
         onLogin={keycloakLogin}
@@ -459,99 +456,51 @@ export function App() {
       />
 
       {/* Main Screen Views */}
-      <main>
+      <main id="main-content" tabIndex={-1}>
+        {/* TAB 1: HOMEPAGE (Trang chủ sạch đẹp với Hero Slogan & Promos) */}
+        {activeTab === 'home' && (
+          <>
+            <HeroSearch onGoToSearch={() => setActiveTab('search')} />
+            <PopularDestinations
+              onSelectRoute={handleSelectPromoRoute}
+              formatMoney={formatMoney}
+            />
+          </>
+        )}
+
+        {/* TAB 2: FLIGHT SEARCH PAGE (Trang Tìm kiếm chuyến bay riêng biệt với cụm Search Card chuẩn ở trên & 2 cột kết quả bên dưới) */}
         {activeTab === 'search' && (
           <>
-            {/* SCREEN 1: HOMEPAGE (Trang chủ & Công cụ tìm kiếm) */}
-            {step === 'home' && (
-              <>
-                <HeroSearch
-                  search={search}
-                  setSearch={setSearch}
-                  airports={airports}
-                  airlines={airlines}
-                  onSearch={handleSearch}
-                  isSearching={isSearching}
-                  tripType={tripType}
-                  setTripType={setTripType}
-                />
-                <PopularDestinations
-                  onSelectRoute={handleSelectPromoRoute}
-                  formatMoney={formatMoney}
-                />
-              </>
+            {step === 'list' && (
+              <FlightSearchPage
+                search={search}
+                setSearch={setSearch}
+                airports={airports}
+                airlines={airlines}
+                flights={flights}
+                onSearch={handleSearch}
+                onSelectFlight={handleSelectFlight}
+                isLoading={isSearching}
+                tripType={tripType}
+                setTripType={setTripType}
+                formatMoney={formatMoney}
+                formatDateTime={formatDateTime}
+                durationLabel={durationLabel}
+              />
             )}
 
-            {/* SCREEN 2: FLIGHT SEARCH RESULTS (Trang kết quả tìm kiếm riêng biệt) */}
-            {step === 'results' && (
-              <div className="max-w-6xl mx-auto px-4 pt-4">
-                {/* Breadcrumbs */}
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
-                  <button
-                    onClick={() => setStep('home')}
-                    className="hover:text-slate-900 flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-base">home</span> Trang chủ
-                  </button>
-                  <span>/</span>
-                  <span className="text-sky-600 font-extrabold">Kết quả tìm kiếm chuyến bay</span>
-                </div>
-
-                {/* Top Search Summary Banner */}
-                <div className="bg-slate-900 text-white rounded-3xl p-6 mb-8 flex flex-wrap items-center justify-between gap-4 shadow-xl">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center font-bold text-xl">
-                      <span className="material-symbols-outlined text-2xl">flight_takeoff</span>
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
-                        <span>{search.from}</span>
-                        <span className="material-symbols-outlined text-sky-400 text-base">
-                          arrow_forward
-                        </span>
-                        <span>{search.to}</span>
-                      </h2>
-                      <p className="text-xs text-slate-300 font-semibold mt-0.5">
-                        Ngày đi: {search.date} • {search.passengers} hành khách •{' '}
-                        {tripType === 'round-trip' ? 'Khứ hồi' : 'Một chiều'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setStep('home')}
-                    className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold backdrop-blur-md border border-white/20 transition-all flex items-center gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-base">edit</span>
-                    Thay đổi tìm kiếm
-                  </button>
-                </div>
-
-                <FlightResults
-                  flights={flights}
-                  upcomingFlights={upcomingFlights}
-                  onSelectFlight={handleSelectFlight}
-                  isLoading={isSearching}
-                  formatMoney={formatMoney}
-                  formatDateTime={formatDateTime}
-                  durationLabel={durationLabel}
-                />
-              </div>
-            )}
-
-            {/* SCREEN 3: SEAT SELECTION */}
             {step === 'seat' && selectedFlight && (
-              <div className="max-w-6xl mx-auto px-4 pt-4">
+              <div className="max-w-6xl mx-auto px-4 pt-24">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
                   <button
-                    onClick={() => setStep('home')}
+                    onClick={() => setActiveTab('home')}
                     className="hover:text-slate-900 flex items-center gap-1"
                   >
                     <span className="material-symbols-outlined text-base">home</span> Trang chủ
                   </button>
                   <span>/</span>
-                  <button onClick={() => setStep('results')} className="hover:text-slate-900">
-                    Kết quả tìm kiếm
+                  <button onClick={() => setStep('list')} className="hover:text-slate-900">
+                    Tìm chuyến bay
                   </button>
                   <span>/</span>
                   <span className="text-sky-600 font-extrabold">Chọn chỗ ngồi</span>
@@ -565,25 +514,24 @@ export function App() {
                   manualSeat={manualSeat}
                   setManualSeat={setManualSeat}
                   onProceedToPassenger={() => setStep('passenger-payment')}
-                  onBackToResults={() => setStep('results')}
+                  onBackToResults={() => setStep('list')}
                   formatMoney={formatMoney}
                 />
               </div>
             )}
 
-            {/* SCREEN 4: PASSENGER INFO & PAYMENT */}
             {step === 'passenger-payment' && selectedFlight && (
-              <div className="max-w-6xl mx-auto px-4 pt-4">
+              <div className="max-w-6xl mx-auto px-4 pt-24">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
                   <button
-                    onClick={() => setStep('home')}
+                    onClick={() => setActiveTab('home')}
                     className="hover:text-slate-900 flex items-center gap-1"
                   >
                     <span className="material-symbols-outlined text-base">home</span> Trang chủ
                   </button>
                   <span>/</span>
-                  <button onClick={() => setStep('results')} className="hover:text-slate-900">
-                    Kết quả tìm kiếm
+                  <button onClick={() => setStep('list')} className="hover:text-slate-900">
+                    Tìm chuyến bay
                   </button>
                   <span>/</span>
                   <button onClick={() => setStep('seat')} className="hover:text-slate-900">
@@ -617,33 +565,39 @@ export function App() {
           </>
         )}
 
+        {/* TAB 3: MY BOOKINGS */}
         {activeTab === 'bookings' && (
-          <MyBookingsETicket
-            bookings={userBookings}
-            onCancelBooking={handleCancelBooking}
-            onRefreshBookings={loadUserBookings}
-            formatMoney={formatMoney}
-            formatDateTime={formatDateTime}
-          />
+          <div className="pt-8">
+            <MyBookingsETicket
+              bookings={userBookings}
+              onCancelBooking={handleCancelBooking}
+              onRefreshBookings={loadUserBookings}
+              formatMoney={formatMoney}
+              formatDateTime={formatDateTime}
+            />
+          </div>
         )}
 
+        {/* TAB 4: ADMIN DASHBOARD */}
         {activeTab === 'admin' && (
-          <AdminDashboard
-            flights={flights}
-            airports={airports}
-            airlines={airlines}
-            routes={routes}
-            bookings={userBookings}
-            onCreateFlight={handleCreateFlight}
-            onDeleteFlight={handleDeleteFlight}
-            onUpdateStatus={handleUpdateFlightStatus}
-            onCreateAirport={handleCreateAirport}
-            onCreateAirline={handleCreateAirline}
-            onCreateRoute={handleCreateRoute}
-            onSeatAction={handleSeatAction}
-            formatMoney={formatMoney}
-            formatDateTime={formatDateTime}
-          />
+          <div className="pt-8">
+            <AdminDashboard
+              flights={flights}
+              airports={airports}
+              airlines={airlines}
+              routes={routes}
+              bookings={userBookings}
+              onCreateFlight={handleCreateFlight}
+              onDeleteFlight={handleDeleteFlight}
+              onUpdateStatus={handleUpdateFlightStatus}
+              onCreateAirport={handleCreateAirport}
+              onCreateAirline={handleCreateAirline}
+              onCreateRoute={handleCreateRoute}
+              onSeatAction={handleSeatAction}
+              formatMoney={formatMoney}
+              formatDateTime={formatDateTime}
+            />
+          </div>
         )}
       </main>
 

@@ -132,9 +132,17 @@ services:
       # Khong set thi container chi co guest/guest -> doi RABBIT_USER se fail connect.
       RABBITMQ_DEFAULT_USER: ${RABBIT_USER:?RABBIT_USER chua set trong .env}
       RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS:?RABBIT_PASS chua set trong .env}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+    # AMQP (5672) va Management UI (15672) chi dung trong Docker network.
+    # Khong publish ra host/VPS de tranh scan, brute-force va truy cap trai phep.
+    expose:
+      - "5672"
+      - "15672"
+    # Gioi han Docker log de mot service loi khong lam day disk cua VPS.
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s

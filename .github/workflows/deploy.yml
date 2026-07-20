@@ -90,11 +90,40 @@ jobs:
 
             # Tranh build tat ca image Java cung luc tren VPS it CPU/RAM.
             export COMPOSE_PARALLEL_LIMIT=2
-            if ! docker compose -f docker-compose.prod.yml up -d --build --remove-orphans; then
+            docker compose -f docker-compose.prod.yml build
+
+            deploy_failed=false
+            if ! docker compose -f docker-compose.prod.yml up -d --remove-orphans; then
+              echo "Initial Compose start returned non-zero; waiting for the stack to converge..."
+            fi
+
+            # A dependency can still be inside its health-check start period
+            # when the initial Compose graph is started on a small VPS. Re-run
+            # without rebuilding and wait for every service to become ready.
+            if docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 600; then
+              echo "All services are ready."
+            else
+              deploy_failed=true
+            fi
+
+            if [ "${deploy_failed:-false}" = "true" ]; then
               echo "Deployment failed; collecting container diagnostics..."
               docker compose -f docker-compose.prod.yml ps -a || true
-              docker logs --tail 200 abs-rabbitmq || true
-              docker inspect --format '{{json .State.Health}}' abs-rabbitmq || true
+
+              # Report the containers that can actually block the dependency
+              # graph. The previous diagnostics always tailed RabbitMQ even when
+              # another service was the one that failed.
+              for container_id in $(docker compose -f docker-compose.prod.yml ps -aq); do
+                container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's#^/##')
+                container_status=$(docker inspect --format '{{.State.Status}}' "$container_id")
+                container_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")
+
+                echo "$container_name: status=$container_status health=$container_health"
+                if [ "$container_status" != "running" ] || { [ "$container_health" != "healthy" ] && [ "$container_health" != "none" ]; }; then
+                  docker logs --tail 200 "$container_id" || true
+                  docker inspect --format '{{json .State}}' "$container_id" || true
+                fi
+              done
               exit 1
             fi
             docker image prune -f

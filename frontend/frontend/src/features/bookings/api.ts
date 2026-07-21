@@ -26,6 +26,11 @@ export const bookingApi = {
       query: { status, page: 0, size: 20 },
     })
   },
+  getAdminBookings(page = 0, size = 200) {
+    return apiRequest<PageResponse<BookingDetail>>(baseUrl, `${root}/admin`, {
+      query: { page, size },
+    })
+  },
   cancelBooking(id: number) {
     return apiRequest<BookingDetail>(baseUrl, `${root}/${id}`, { method: 'DELETE' })
   },

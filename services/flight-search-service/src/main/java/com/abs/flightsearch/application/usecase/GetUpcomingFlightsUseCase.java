@@ -6,6 +6,7 @@ import com.abs.flightsearch.domain.aggregate.SeatInventoryAggregate;
 import com.abs.flightsearch.domain.repository.FlightRepository;
 import com.abs.flightsearch.domain.repository.SeatInventoryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ public class GetUpcomingFlightsUseCase {
     private final SeatInventoryRepository seatInventoryRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "upcomingFlights", key = "#hours")
     public List<FlightSearchResponse> execute(int hours) {
         LocalDateTime from = LocalDateTime.now();
         LocalDateTime to = from.plusHours(hours);

@@ -6,6 +6,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.ReactiveAuthorizationManager;
+import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import reactor.core.publisher.Flux;
@@ -26,6 +29,9 @@ public class GatewaySecurityConfig {
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers("/actuator/health", "/api/v1/payments/webhooks/sepay").permitAll()
                         .pathMatchers(HttpMethod.GET,
+                                "/api/v1/flights/admin",
+                                "/api/v1/bookings/admin").hasRole("ADMIN")
+                        .pathMatchers(HttpMethod.GET,
                                 "/api/v1/flights/**",
                                 "/api/v1/airports/**",
                                 "/api/v1/airlines/**",
@@ -35,6 +41,8 @@ public class GatewaySecurityConfig {
                                 "/api/v1/airports/**",
                                 "/api/v1/airlines/**",
                                 "/api/v1/routes/**").hasRole("ADMIN")
+                        .pathMatchers("/api/v1/bookings/**", "/api/v1/payments/**")
+                                .access(nonAdmin())
                         .pathMatchers("/api/v1/notifications/me").authenticated()
                         .pathMatchers("/api/v1/notifications/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/users/me", "/api/v1/users/me/**").authenticated()
@@ -43,6 +51,15 @@ public class GatewaySecurityConfig {
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .build();
+    }
+
+    private ReactiveAuthorizationManager<AuthorizationContext> nonAdmin() {
+        return (authentication, context) -> authentication
+                .map(auth -> new AuthorizationDecision(
+                        auth.isAuthenticated()
+                                && auth.getAuthorities().stream()
+                                .noneMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()))))
+                .defaultIfEmpty(new AuthorizationDecision(false));
     }
 
     private ReactiveJwtAuthenticationConverter jwtAuthenticationConverter() {

@@ -31,6 +31,7 @@ public class FlightController {
     private final GetAirportsUseCase getAirportsUseCase;
     private final GetAirlinesUseCase getAirlinesUseCase;
     private final ImportFlightsUseCase importFlightsUseCase;
+    private final GetAllFlightsUseCase getAllFlightsUseCase;
 
     // P0 Usecases
     private final HoldSeatUseCase holdSeatUseCase;
@@ -68,6 +69,11 @@ public class FlightController {
     public ResponseEntity<FlightDetailResponse> getFlightDetail(@PathVariable("id") Long id) {
         FlightDetailResponse response = getFlightDetailUseCase.execute(id);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin")
+    public ResponseEntity<List<FlightSearchResponse>> getAllFlightsForAdmin() {
+        return ResponseEntity.ok(getAllFlightsUseCase.execute());
     }
 
     @GetMapping(ApiPath.SEATS)

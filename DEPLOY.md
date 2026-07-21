@@ -31,6 +31,15 @@ Keycloak chỉ tự import `infra/keycloak/abs-realm.json` khi realm `airline-bo
 Nếu VPS đã có realm cũ, hãy cập nhật/import client public `airline-frontend` trong Keycloak Admin
 Console. Không xóa volume PostgreSQL chỉ để import lại realm vì thao tác đó cũng xóa dữ liệu ứng dụng.
 
+Realm đã tồn tại cũng cần bật theme mới một lần sau khi container khởi động:
+
+```bash
+docker exec abs-keycloak sh -c '
+  /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8180 --realm master --user "$KEYCLOAK_ADMIN" --password "$KEYCLOAK_ADMIN_PASSWORD" &&
+  /opt/keycloak/bin/kcadm.sh update realms/airline-booking -s loginTheme=skyswift
+'
+```
+
 Lần đầu build backend images và frontend image nên hơi lâu; các lần sau nhanh hơn nhờ cache Docker.
 
 Xem trạng thái / log:

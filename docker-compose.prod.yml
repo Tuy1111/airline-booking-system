@@ -245,9 +245,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/flight_db
       SPRING_DATASOURCE_USERNAME: ${DB_USER:?DB_USER chua set trong .env}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
     expose: ["8081"]
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       service-registry:
         condition: service_started
@@ -449,6 +453,7 @@ services:
     expose: ["8180"]
     volumes:
       - ./infra/keycloak:/opt/keycloak/data/import
+      - ./infra/keycloak/themes/skyswift:/opt/keycloak/themes/skyswift:ro
     depends_on:
       postgres:
         condition: service_healthy

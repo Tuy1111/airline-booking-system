@@ -12,6 +12,10 @@ export interface AuthenticatedUser {
   roles: string[]
 }
 
+export function isAdminUser(user: AuthenticatedUser | null) {
+  return Boolean(user?.roles.some((role) => ['ADMIN', 'admin', 'ROLE_ADMIN'].includes(role)))
+}
+
 const TOKEN_KEY = 'kc_token'
 const REFRESH_TOKEN_KEY = 'kc_refreshToken'
 

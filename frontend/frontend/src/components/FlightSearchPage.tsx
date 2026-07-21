@@ -18,6 +18,7 @@ interface FlightSearchPageProps {
   formatMoney: (val: number | string | null | undefined) => string
   formatDateTime: (val: string | null | undefined) => string
   durationLabel: (start: string, end: string) => string
+  canBook: boolean
 }
 
 const statusLabel: Record<FlightSummary['status'], string> = {
@@ -55,6 +56,7 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
   setTripType,
   formatMoney,
   durationLabel,
+  canBook,
 }) => {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [page, setPage] = useState(1)
@@ -78,9 +80,13 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
     flights.forEach((flight) => options.set(flight.airlineCode, { code: flight.airlineCode, name: flight.airlineName }))
     return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi'))
   }, [airlines, flights])
-  const totalPages = Math.max(1, Math.ceil(flights.length / PAGE_SIZE))
+  const bookableFlights = useMemo(
+    () => flights.filter((flight) => flight.status === 'SCHEDULED' && new Date(flight.departureTime).getTime() > Date.now()),
+    [flights],
+  )
+  const totalPages = Math.max(1, Math.ceil(bookableFlights.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const visibleFlights = flights.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const visibleFlights = bookableFlights.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   useEffect(() => setPage(1), [flights])
 
@@ -116,7 +122,7 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
         <section className="flight-list-region" aria-labelledby="flight-results-heading" aria-live="polite">
           <div className="result-toolbar">
             <div>
-              <span className="result-count">{isLoading ? '—' : flights.length}</span>
+              <span className="result-count">{isLoading ? '...' : bookableFlights.length}</span>
               <div>
                 <h2 id="flight-results-heading">{hasFilters ? 'Kết quả phù hợp' : 'Danh sách chuyến bay'}</h2>
                 <p>{hasFilters ? 'Theo bộ lọc đang áp dụng' : 'Chưa áp dụng bộ lọc'}</p>
@@ -142,7 +148,7 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
             </div>
           )}
 
-          {!isLoading && !error && flights.length === 0 && (
+          {!isLoading && !error && bookableFlights.length === 0 && (
             <div className="result-state result-empty">
               <span className="material-symbols-outlined" aria-hidden="true">travel_explore</span>
               <div>
@@ -153,7 +159,7 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
             </div>
           )}
 
-          {!isLoading && !error && flights.length > 0 && (
+          {!isLoading && !error && bookableFlights.length > 0 && (
             <div className="flight-card-list">
               {visibleFlights.map((flight, index) => (
                 <article
@@ -196,9 +202,9 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
                       <strong>{formatMoney(flight.currentPrice || flight.basePrice)}</strong>
                       <small>{flight.availableSeats} ghế còn lại</small>
                     </div>
-                    <button type="button" onClick={() => onSelectFlight(flight)} disabled={flight.status === 'CANCELLED'}>
-                      {flight.status === 'CANCELLED' ? 'Không khả dụng' : 'Chọn chuyến'}
-                      {flight.status !== 'CANCELLED' && <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>}
+                    <button type="button" onClick={() => onSelectFlight(flight)} disabled={!canBook}>
+                      {canBook ? 'Chọn chuyến' : 'Tài khoản quản trị'}
+                      {canBook && <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>}
                     </button>
                   </div>
                 </article>

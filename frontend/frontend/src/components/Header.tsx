@@ -1,5 +1,5 @@
 import React from 'react'
-import type { AuthenticatedUser } from '../shared/auth/keycloak'
+import { isAdminUser, type AuthenticatedUser } from '../shared/auth/keycloak'
 
 interface HeaderProps {
   activeTab: 'home' | 'search' | 'bookings' | 'profile' | 'admin'
@@ -28,12 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotificationsCount,
   onToggleNotifications,
 }) => {
-  const isAdmin = Boolean(
-    user &&
-      (user.roles?.includes('ADMIN') ||
-        user.roles?.includes('admin') ||
-        user.roles?.includes('ROLE_ADMIN')),
-  )
+  const isAdmin = isAdminUser(user)
 
   return (
     <header className="site-header">
@@ -48,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
       </button>
 
       <nav className="page-nav" aria-label="Điều hướng chính">
-        {navItems.map((item) => (
+        {navItems.filter((item) => !(isAdmin && item.id === 'bookings')).map((item) => (
           <button
             key={item.id}
             type="button"

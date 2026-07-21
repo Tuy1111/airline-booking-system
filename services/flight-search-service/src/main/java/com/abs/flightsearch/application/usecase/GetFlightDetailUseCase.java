@@ -7,6 +7,7 @@ import com.abs.flightsearch.domain.exception.FlightNotFoundException;
 import com.abs.flightsearch.domain.repository.FlightRepository;
 import com.abs.flightsearch.domain.repository.SeatInventoryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ public class GetFlightDetailUseCase {
     private final SeatInventoryRepository seatInventoryRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "flightDetail", key = "#id")
     public FlightDetailResponse execute(Long id) {
         FlightAggregate flight = flightRepository.findById(id)
                 .orElseThrow(() -> new FlightNotFoundException(id));

@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class CheckSeatAvailabilityUseCase {
@@ -25,6 +27,7 @@ public class CheckSeatAvailabilityUseCase {
     public SeatInfoResponse execute(Long flightId, String seatNo) {
         FlightAggregate flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new FlightNotFoundException(flightId));
+        flight.ensureBookableAt(LocalDateTime.now());
 
         FlightSeatId seatId = new FlightSeatId(flightId, seatNo);
         FlightSeatAggregate seat = flightSeatRepository.findById(seatId)

@@ -25,6 +25,9 @@ export const flightApi = {
       query: params,
     })
   },
+  getAdminFlights() {
+    return apiRequest<FlightSummary[]>(baseUrl, `${root}/flights/admin`)
+  },
   upcoming(hours = 24) {
     return apiRequest<FlightSummary[]>(baseUrl, `${root}/flights/upcoming`, {
       query: { hours },

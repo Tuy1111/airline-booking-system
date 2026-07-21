@@ -11,11 +11,13 @@ import com.abs.flightsearch.domain.vo.FlightStatus;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -35,6 +37,7 @@ public class SearchFlightsUseCase {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "flightSearch")
     public List<FlightSearchResponse> execute(
             String from, String to, LocalDate date, int passengers,
             FlightStatus status, String airline, BigDecimal minPrice, BigDecimal maxPrice,
@@ -63,12 +66,13 @@ public class SearchFlightsUseCase {
 
         record FlightAndInventory(FlightAggregate flight, SeatInventoryAggregate inv) {}
 
+        LocalDateTime now = LocalDateTime.now();
         Stream<FlightAndInventory> stream = flights.stream()
                 .map(flight -> new FlightAndInventory(flight, seatInventoryRepository.findById(flight.getId()).orElse(null)))
+                .filter(pair -> pair.flight().isBookableAt(now))
                 .filter(pair -> pair.inv() != null ? pair.inv().hasAvailableSeats(passengers) : pair.flight().getTotalSeats() >= passengers)
                 .filter(pair -> !hasText(from) || pair.flight().getRoute().getFromAirport().getIataCode().equalsIgnoreCase(from))
                 .filter(pair -> !hasText(to) || pair.flight().getRoute().getToAirport().getIataCode().equalsIgnoreCase(to))
-                .filter(pair -> status == null || pair.flight().getStatus() == status)
                 .filter(pair -> date == null || !pair.flight().getDepartureTime().toLocalDate().isBefore(date))
                 .filter(pair -> dateTo == null || !pair.flight().getDepartureTime().toLocalDate().isAfter(dateTo))
                 .filter(pair -> dateTo != null || date == null || pair.flight().getDepartureTime().toLocalDate().equals(date));

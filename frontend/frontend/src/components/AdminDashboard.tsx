@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import type { BookingDetail } from '../features/bookings/types'
 import type {
   Airline,
@@ -22,7 +22,6 @@ interface AdminDashboardProps {
   onCreateAirport: (data: { iataCode: string; name: string; city: string; country: string }) => void
   onCreateAirline: (data: { code: string; name: string }) => void
   onCreateRoute: (data: { fromAirport: string; toAirport: string; distanceKm: number }) => void
-  onSeatAction: (flightId: number, seatNo: string, action: 'hold' | 'book' | 'release') => void
   formatMoney: (val: number | string | null | undefined) => string
   formatDateTime: (val: string | null | undefined) => string
 }
@@ -30,6 +29,7 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   flights,
   airports,
+  airlines,
   routes,
   bookings,
   onCreateFlight,
@@ -38,7 +38,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onCreateAirport,
   onCreateAirline,
   onCreateRoute,
-  onSeatAction,
   formatMoney,
   formatDateTime,
 }) => {
@@ -63,10 +62,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newDeparture, setNewDeparture] = useState('')
   const [newArrival, setNewArrival] = useState('')
 
-  // Seat Action Modal State
-  const [seatFlightId, setSeatFlightId] = useState<number>(flights[0]?.id || 1)
-  const [seatNo, setSeatNo] = useState('12A')
-
   // Resource Form States
   const [newIataCode, setNewIataCode] = useState('')
   const [newAirportName, setNewAirportName] = useState('')
@@ -81,7 +76,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [routeDistance, setRouteDistance] = useState(1160)
   const [routeError, setRouteError] = useState('')
 
-  const totalRevenue = bookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0)
+  const [flightKeyword, setFlightKeyword] = useState('')
+  const [flightStatus, setFlightStatus] = useState<FlightStatus | ''>('')
+  const [flightAirline, setFlightAirline] = useState('')
+  const [flightPage, setFlightPage] = useState(1)
+  const [bookingKeyword, setBookingKeyword] = useState('')
+  const [bookingStatus, setBookingStatus] = useState<BookingDetail['status'] | ''>('')
+  const [bookingPage, setBookingPage] = useState(1)
+  const pageSize = 8
+
+  const filteredFlights = useMemo(() => {
+    const keyword = flightKeyword.trim().toLocaleLowerCase('vi')
+    return flights.filter((flight) => {
+      const matchesKeyword = !keyword || [
+        flight.flightNo,
+        flight.airlineCode,
+        flight.airlineName,
+        flight.fromAirport,
+        flight.fromCity,
+        flight.toAirport,
+        flight.toCity,
+      ].some((value) => value?.toLocaleLowerCase('vi').includes(keyword))
+      return matchesKeyword
+        && (!flightStatus || flight.status === flightStatus)
+        && (!flightAirline || flight.airlineCode === flightAirline)
+    })
+  }, [flightAirline, flightKeyword, flightStatus, flights])
+
+  const filteredBookings = useMemo(() => {
+    const keyword = bookingKeyword.trim().toLocaleLowerCase('vi')
+    return bookings.filter((booking) => {
+      const passenger = booking.items?.[0]?.passengerName || ''
+      const seat = booking.items?.[0]?.seatNo || ''
+      const matchesKeyword = !keyword || [
+        booking.bookingCode,
+        String(booking.id),
+        String(booking.userId),
+        String(booking.flightId),
+        passenger,
+        seat,
+      ].some((value) => value.toLocaleLowerCase('vi').includes(keyword))
+      return matchesKeyword && (!bookingStatus || booking.status === bookingStatus)
+    })
+  }, [bookingKeyword, bookingStatus, bookings])
+
+  const flightPages = Math.max(1, Math.ceil(filteredFlights.length / pageSize))
+  const bookingPages = Math.max(1, Math.ceil(filteredBookings.length / pageSize))
+  const visibleFlights = filteredFlights.slice((flightPage - 1) * pageSize, flightPage * pageSize)
+  const visibleBookings = filteredBookings.slice((bookingPage - 1) * pageSize, bookingPage * pageSize)
+
+  useEffect(() => setFlightPage(1), [flightKeyword, flightStatus, flightAirline])
+  useEffect(() => setBookingPage(1), [bookingKeyword, bookingStatus])
+  useEffect(() => setFlightPage((page) => Math.min(page, flightPages)), [flightPages])
+  useEffect(() => setBookingPage((page) => Math.min(page, bookingPages)), [bookingPages])
+
+  const scheduledFlights = flights.filter((flight) => (
+    flight.status === 'SCHEDULED' && new Date(flight.departureTime).getTime() > Date.now()
+  )).length
+  const confirmedBookings = bookings.filter((booking) => booking.status === 'CONFIRMED')
+  const totalRevenue = confirmedBookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0)
 
   const handleCreateFlightSubmit = () => {
     if (fromAirportCode === toAirportCode) {
@@ -177,19 +230,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-1">
               <span className="text-xs font-bold text-slate-400 uppercase">Tổng số chuyến bay</span>
               <div className="text-3xl font-black text-slate-900">{flights.length}</div>
-              <span className="text-[11px] text-emerald-600 font-semibold">Đang vận hành</span>
+              <span className="text-[11px] text-emerald-600 font-semibold">{scheduledFlights} chuyến sắp khởi hành</span>
             </div>
 
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-1">
               <span className="text-xs font-bold text-slate-400 uppercase">Đơn đặt chỗ (Bookings)</span>
               <div className="text-3xl font-black text-sky-600">{bookings.length}</div>
-              <span className="text-[11px] text-sky-600 font-semibold">Tổng giao dịch</span>
+              <span className="text-[11px] text-sky-600 font-semibold">{confirmedBookings.length} đơn đã xác nhận</span>
             </div>
 
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-1">
               <span className="text-xs font-bold text-slate-400 uppercase">Doanh thu ước tính</span>
               <div className="text-2xl font-black text-orange-600">{formatMoney(totalRevenue)}</div>
-              <span className="text-[11px] text-orange-600 font-semibold">Cập nhật thời gian thực</span>
+              <span className="text-[11px] text-orange-600 font-semibold">Từ đơn đã xác nhận</span>
             </div>
 
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-1">
@@ -244,15 +297,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Sub-Tab 2: FLIGHT MANAGEMENT */}
       {subTab === 'flights' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xl font-extrabold text-slate-900">Quản lý danh sách chuyến bay</h3>
+          <div className="admin-section-heading">
+            <div>
+              <h3>Quản lý chuyến bay</h3>
+              <p>{filteredFlights.length} / {flights.length} chuyến bay phù hợp</p>
+            </div>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+              className="admin-primary-action"
             >
               <span className="material-symbols-outlined text-base">add</span>
               Tạo chuyến bay mới
             </button>
+          </div>
+
+          <div className="admin-table-toolbar" aria-label="Bộ lọc chuyến bay">
+            <label className="admin-search-control">
+              <span className="material-symbols-outlined" aria-hidden="true">search</span>
+              <span className="sr-only">Tìm kiếm chuyến bay</span>
+              <input
+                type="search"
+                value={flightKeyword}
+                onChange={(event) => setFlightKeyword(event.target.value)}
+                placeholder="Mã chuyến, hãng, sân bay hoặc thành phố"
+              />
+            </label>
+            <label>
+              <span>Trạng thái</span>
+              <select value={flightStatus} onChange={(event) => setFlightStatus(event.target.value as FlightStatus | '')}>
+                <option value="">Tất cả trạng thái</option>
+                <option value="SCHEDULED">Đúng lịch</option>
+                <option value="DELAYED">Bị hoãn</option>
+                <option value="CANCELLED">Đã hủy</option>
+                <option value="DEPARTED">Đã khởi hành</option>
+              </select>
+            </label>
+            <label>
+              <span>Hãng bay</span>
+              <select value={flightAirline} onChange={(event) => setFlightAirline(event.target.value)}>
+                <option value="">Tất cả hãng bay</option>
+                {airlines.map((airline) => <option key={airline.code} value={airline.code}>{airline.name}</option>)}
+              </select>
+            </label>
+            {(flightKeyword || flightStatus || flightAirline) && (
+              <button type="button" className="admin-clear-filter" onClick={() => {
+                setFlightKeyword('')
+                setFlightStatus('')
+                setFlightAirline('')
+              }}>Xóa bộ lọc</button>
+            )}
           </div>
 
           {/* Flights Table */}
@@ -273,7 +366,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {flights.map((f) => (
+                {visibleFlights.map((f) => (
                   <tr key={f.id} className="hover:bg-slate-50">
                     <td className="py-3 px-3 text-slate-400">{f.id}</td>
                     <td className="py-3 px-3 font-bold text-slate-900">{f.flightNo}</td>
@@ -307,7 +400,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </td>
                   </tr>
                 ))}
-                {flights.length === 0 && (
+                {filteredFlights.length === 0 && (
                   <tr>
                     <td colSpan={10} className="py-12 px-3 text-center text-slate-500">
                       Danh sách chuyến bay đang trống.
@@ -316,46 +409,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </tbody>
             </table>
-          </div>
-
-          {/* Seat Override Box */}
-          <div className="admin-seat-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-            <h4 className="font-bold text-slate-900 text-sm">Quản trị trạng thái ghế nội bộ</h4>
-            <div className="flex flex-wrap gap-3 items-center text-xs">
-              <label className="font-bold text-slate-600">ID Chuyến bay:</label>
-              <input
-                type="number"
-                value={seatFlightId}
-                onChange={(e) => setSeatFlightId(Number(e.target.value))}
-                className="w-24 bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold"
-              />
-
-              <label className="font-bold text-slate-600 ml-2">Mã ghế:</label>
-              <input
-                type="text"
-                value={seatNo}
-                onChange={(e) => setSeatNo(e.target.value.toUpperCase())}
-                className="w-24 bg-slate-50 border border-slate-200 rounded-xl p-2 font-bold uppercase"
-              />
-
-              <button
-                onClick={() => onSeatAction(seatFlightId, seatNo, 'hold')}
-                className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold"
-              >
-                Giữ ghế (Hold)
-              </button>
-              <button
-                onClick={() => onSeatAction(seatFlightId, seatNo, 'book')}
-                className="px-3 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold"
-              >
-                Đặt ghế (Book)
-              </button>
-              <button
-                onClick={() => onSeatAction(seatFlightId, seatNo, 'release')}
-                className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl font-bold"
-              >
-                Nhả ghế (Release)
-              </button>
+            <div className="admin-pagination" aria-label="Phân trang chuyến bay">
+              <span>Trang {flightPage} / {flightPages}</span>
+              <div>
+                <button type="button" disabled={flightPage === 1} onClick={() => setFlightPage((page) => page - 1)}>Trước</button>
+                <button type="button" disabled={flightPage === flightPages} onClick={() => setFlightPage((page) => page + 1)}>Sau</button>
+              </div>
             </div>
           </div>
         </div>
@@ -364,7 +423,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Sub-Tab 3: BOOKING MANAGEMENT */}
       {subTab === 'bookings' && (
         <div className="admin-data-panel bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-          <h3 className="text-xl font-extrabold text-slate-900">Quản lý tất cả đơn đặt chỗ</h3>
+          <div className="admin-panel-heading">
+            <div>
+              <h3>Quản lý đặt chỗ</h3>
+              <p>{filteredBookings.length} / {bookings.length} đơn phù hợp</p>
+            </div>
+          </div>
+          <div className="admin-table-toolbar booking-toolbar" aria-label="Bộ lọc đơn đặt chỗ">
+            <label className="admin-search-control">
+              <span className="material-symbols-outlined" aria-hidden="true">search</span>
+              <span className="sr-only">Tìm kiếm đơn đặt chỗ</span>
+              <input
+                type="search"
+                value={bookingKeyword}
+                onChange={(event) => setBookingKeyword(event.target.value)}
+                placeholder="Mã booking, hành khách, ghế, user hoặc flight ID"
+              />
+            </label>
+            <label>
+              <span>Trạng thái</span>
+              <select value={bookingStatus} onChange={(event) => setBookingStatus(event.target.value as BookingDetail['status'] | '')}>
+                <option value="">Tất cả trạng thái</option>
+                <option value="HELD">Đang giữ</option>
+                <option value="CONFIRMED">Đã xác nhận</option>
+                <option value="CANCELLED">Đã hủy</option>
+                <option value="EXPIRED">Đã hết hạn</option>
+                <option value="REFUNDED">Đã hoàn tiền</option>
+              </select>
+            </label>
+            {(bookingKeyword || bookingStatus) && (
+              <button type="button" className="admin-clear-filter" onClick={() => {
+                setBookingKeyword('')
+                setBookingStatus('')
+              }}>Xóa bộ lọc</button>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -379,7 +472,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {bookings.map((b) => (
+                {visibleBookings.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-50">
                     <td className="py-3 px-3 text-slate-400">{b.id}</td>
                     <td className="py-3 px-3 font-bold text-slate-900">{b.bookingCode}</td>
@@ -392,7 +485,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </td>
                   </tr>
                 ))}
-                {bookings.length === 0 && (
+                {filteredBookings.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-12 px-3 text-center text-slate-500">
                       Chưa có đơn đặt chỗ nào trong hệ thống.
@@ -401,6 +494,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="admin-pagination" aria-label="Phân trang đơn đặt chỗ">
+            <span>Trang {bookingPage} / {bookingPages}</span>
+            <div>
+              <button type="button" disabled={bookingPage === 1} onClick={() => setBookingPage((page) => page - 1)}>Trước</button>
+              <button type="button" disabled={bookingPage === bookingPages} onClick={() => setBookingPage((page) => page + 1)}>Sau</button>
+            </div>
           </div>
         </div>
       )}

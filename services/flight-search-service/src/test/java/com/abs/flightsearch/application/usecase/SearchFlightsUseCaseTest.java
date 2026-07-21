@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +41,46 @@ class SearchFlightsUseCaseTest {
 
         assertEquals(2, useCase.execute(null, null, null, 1, null, null, null, null, null, "departureTime", "asc").size());
         assertEquals("HAN", useCase.execute("HAN", null, null, 1, null, null, null, null, null, "departureTime", "asc").getFirst().fromAirport());
+    }
+
+    @Test
+    void onlyReturnsScheduledFlightsThatHaveNotDeparted() {
+        FlightRepository flights = mock(FlightRepository.class);
+        AirportRepository airports = mock(AirportRepository.class);
+        SeatInventoryRepository inventories = mock(SeatInventoryRepository.class);
+        SearchFlightsUseCase useCase = new SearchFlightsUseCase(
+                flights, airports, inventories, new SimpleMeterRegistry());
+
+        FlightAggregate departedByTime = flight(1L, "HAN", "SGN");
+        departedByTime = FlightAggregate.builder()
+                .id(departedByTime.getId())
+                .flightNo(departedByTime.getFlightNo())
+                .route(departedByTime.getRoute())
+                .airline(departedByTime.getAirline())
+                .departureTime(LocalDateTime.now().minusMinutes(1))
+                .arrivalTime(LocalDateTime.now().plusHours(1))
+                .totalSeats(20)
+                .basePrice(BigDecimal.valueOf(900_000))
+                .status(FlightStatus.SCHEDULED)
+                .build();
+        FlightAggregate delayed = FlightAggregate.builder()
+                .id(2L)
+                .flightNo("SS2")
+                .route(flight(2L, "DAD", "SGN").getRoute())
+                .airline(flight(2L, "DAD", "SGN").getAirline())
+                .departureTime(LocalDateTime.now().plusDays(1))
+                .arrivalTime(LocalDateTime.now().plusDays(1).plusHours(2))
+                .totalSeats(20)
+                .basePrice(BigDecimal.valueOf(900_000))
+                .status(FlightStatus.DELAYED)
+                .build();
+
+        when(flights.findAll()).thenReturn(List.of(departedByTime, delayed));
+        when(inventories.findById(1L)).thenReturn(Optional.of(SeatInventoryAggregate.create(1L, 20)));
+        when(inventories.findById(2L)).thenReturn(Optional.of(SeatInventoryAggregate.create(2L, 20)));
+
+        assertTrue(useCase.execute(null, null, null, 1, null, null, null, null, null,
+                "departureTime", "asc").isEmpty());
     }
 
     private FlightAggregate flight(long id, String from, String to) {

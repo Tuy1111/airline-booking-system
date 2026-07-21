@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import type { Airline, Airport, FlightSearchParams, FlightStatus } from '../features/flights/types'
+import type { Airline, Airport, FlightSearchParams } from '../features/flights/types'
 
 interface SearchWidgetProps {
   search: FlightSearchParams
@@ -170,16 +170,6 @@ export const SearchWidget: React.FC<SearchWidgetProps> = ({
             value={search.passengers}
             onChange={(e) => update('passengers', Number(e.target.value) || 1)}
           />
-        </div>
-        <div className="filter-field">
-          <label htmlFor="filter-status">Trạng thái</label>
-          <select id="filter-status" value={search.status || ''} onChange={(e) => update('status', e.target.value as FlightStatus | '')}>
-            <option value="">Tất cả</option>
-            <option value="SCHEDULED">Đúng lịch</option>
-            <option value="DELAYED">Bị hoãn</option>
-            <option value="DEPARTED">Đã khởi hành</option>
-            <option value="CANCELLED">Đã hủy</option>
-          </select>
         </div>
       </div>
 

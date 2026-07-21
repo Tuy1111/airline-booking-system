@@ -7,6 +7,7 @@ import com.abs.flightsearch.domain.aggregate.RouteAggregate;
 import com.abs.flightsearch.domain.repository.AirportRepository;
 import com.abs.flightsearch.domain.repository.RouteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ public class CreateRouteUseCase {
     private final AirportRepository airportRepository;
 
     @Transactional
+    @CacheEvict(cacheNames = "routes", allEntries = true)
     public RouteResponse execute(RouteRequest req) {
         routeRepository.findByAirports(req.fromAirport(), req.toAirport()).ifPresent(existing -> {
             throw new IllegalStateException("Tuyến bay đã tồn tại: " + req.fromAirport() + " → " + req.toAirport());

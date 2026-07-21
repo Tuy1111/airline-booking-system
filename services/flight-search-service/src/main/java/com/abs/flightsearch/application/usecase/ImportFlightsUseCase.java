@@ -5,6 +5,7 @@ import com.abs.flightsearch.domain.aggregate.*;
 import com.abs.flightsearch.domain.repository.*;
 import com.abs.flightsearch.domain.vo.SeatClass;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class ImportFlightsUseCase {
     private final FlightSeatRepository flightSeatRepository;
 
     @Transactional
+    @CacheEvict(cacheNames = {"airports", "airlines", "routes", "flightSearch", "flightDetail", "upcomingFlights", "adminFlights"}, allEntries = true)
     public void execute(List<FlightImportRequest> requests) {
         if (requests == null || requests.isEmpty()) {
             return;

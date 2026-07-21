@@ -34,6 +34,7 @@ import { userApi } from './features/users/api'
 import type { UserView } from './features/users/types'
 import {
   currentUser,
+  isAdminUser,
   login as keycloakLogin,
   logout as keycloakLogout,
   register as keycloakRegister,
@@ -98,6 +99,7 @@ function getErrorMessage(error: unknown) {
 
 export function App() {
   const [auth] = useState(() => currentUser())
+  const isAdmin = isAdminUser(auth)
   const [activeTab, setActiveTab] = useState<'home' | 'search' | 'bookings' | 'profile' | 'admin'>('home')
   const [step, setStep] = useState<'list' | 'seat' | 'passenger-payment'>('list')
   const [tripType, setTripType] = useState<'one-way' | 'round-trip'>('round-trip')
@@ -140,6 +142,8 @@ export function App() {
   const [holdResult, setHoldResult] = useState<HoldSeatResponse | null>(null)
   const [payment, setPayment] = useState<PaymentResponse | null>(null)
   const [userBookings, setUserBookings] = useState<BookingDetail[]>([])
+  const [adminFlights, setAdminFlights] = useState<FlightSummary[]>([])
+  const [adminBookings, setAdminBookings] = useState<BookingDetail[]>([])
 
   // User Profile State
   const [userProfile, setUserProfile] = useState<UserView | null>(null)
@@ -192,11 +196,15 @@ export function App() {
   // Fetch real User Data if logged in
   useEffect(() => {
     if (auth) {
-      loadUserBookings()
+      if (!isAdmin) loadUserBookings()
       loadNotifications()
       loadUserProfile()
     }
-  }, [auth])
+  }, [auth, isAdmin])
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'admin') loadAdminData()
+  }, [activeTab, isAdmin])
 
   const loadUserProfile = async () => {
     setIsProfileLoading(true)
@@ -225,6 +233,30 @@ export function App() {
       setNotifications(res.content || [])
     } catch (err) {
       console.warn('Could not load notifications:', err)
+    }
+  }
+
+  const loadAdminData = async () => {
+    try {
+      const [flightItems, firstBookingPage] = await Promise.all([
+        flightApi.getAdminFlights(),
+        bookingApi.getAdminBookings(),
+      ])
+      const remainingBookingPages = firstBookingPage.totalPages > 1
+        ? await Promise.all(
+            Array.from(
+              { length: firstBookingPage.totalPages - 1 },
+              (_, index) => bookingApi.getAdminBookings(index + 1),
+            ),
+          )
+        : []
+      setAdminFlights(flightItems || [])
+      setAdminBookings([
+        ...(firstBookingPage.content || []),
+        ...remainingBookingPages.flatMap((page) => page.content || []),
+      ])
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -283,6 +315,10 @@ export function App() {
   }
 
   const handleSelectFlight = async (summary: FlightSummary) => {
+    if (isAdmin) {
+      addToast('warning', 'Tài khoản quản trị không được đặt vé.')
+      return
+    }
     try {
       const [detail, seatMap] = await Promise.all([
         flightApi.getFlight(summary.id),
@@ -301,6 +337,10 @@ export function App() {
 
   const handleHoldSeat = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isAdmin) {
+      addToast('warning', 'Tài khoản quản trị không được giữ chỗ.')
+      return
+    }
     if (!auth) {
       keycloakLogin()
       return
@@ -325,6 +365,10 @@ export function App() {
   }
 
   const handleCreatePayment = async () => {
+    if (isAdmin) {
+      addToast('warning', 'Tài khoản quản trị không được thanh toán.')
+      return
+    }
     if (!holdResult) return
     setIsCreatingPayment(true)
     try {
@@ -427,7 +471,7 @@ export function App() {
     try {
       await flightApi.createFlight(req)
       addToast('success', 'Đã tạo chuyến bay mới thành công!')
-      handleSearch()
+      loadAdminData()
     } catch (err) {
       addToast('error', getErrorMessage(err))
     }
@@ -437,7 +481,7 @@ export function App() {
     try {
       await flightApi.deleteFlight(id)
       addToast('success', `Đã xóa chuyến bay #${id}!`)
-      handleSearch()
+      loadAdminData()
     } catch (err) {
       addToast('error', getErrorMessage(err))
     }
@@ -447,7 +491,7 @@ export function App() {
     try {
       await flightApi.updateStatus(id, req)
       addToast('success', 'Đã cập nhật trạng thái chuyến bay!')
-      handleSearch()
+      loadAdminData()
     } catch (err) {
       addToast('error', getErrorMessage(err))
     }
@@ -478,22 +522,6 @@ export function App() {
       const created = await flightApi.createRoute(data)
       setRoutes((prev) => [...prev, created])
       addToast('success', `Đã tạo đường bay ${data.fromAirport} ➔ ${data.toAirport}!`)
-    } catch (err) {
-      addToast('error', getErrorMessage(err))
-    }
-  }
-
-  const handleSeatAction = async (
-    flightId: number,
-    seatNo: string,
-    action: 'hold' | 'book' | 'release',
-  ) => {
-    try {
-      if (action === 'hold') await flightApi.holdSeat(flightId, seatNo)
-      else if (action === 'book') await flightApi.bookSeat(flightId, seatNo)
-      else await flightApi.releaseSeat(flightId, seatNo)
-
-      addToast('success', `Thao tác ${action} ghế ${seatNo} chuyến bay #${flightId} thành công!`)
     } catch (err) {
       addToast('error', getErrorMessage(err))
     }
@@ -553,6 +581,7 @@ export function App() {
                 formatMoney={formatMoney}
                 formatDateTime={formatDateTime}
                 durationLabel={durationLabel}
+                canBook={!isAdmin}
               />
             )}
 
@@ -633,7 +662,7 @@ export function App() {
         )}
 
         {/* TAB 3: MY BOOKINGS */}
-        {activeTab === 'bookings' && (
+        {activeTab === 'bookings' && !isAdmin && (
           <div className="route-shell route-bookings pt-8">
             <MyBookingsETicket
               bookings={userBookings}
@@ -672,21 +701,20 @@ export function App() {
         )}
 
         {/* TAB 4: ADMIN DASHBOARD */}
-        {activeTab === 'admin' && (
+        {activeTab === 'admin' && isAdmin && (
           <div className="route-shell route-admin pt-8">
             <AdminDashboard
-              flights={flights}
+              flights={adminFlights}
               airports={airports}
               airlines={airlines}
               routes={routes}
-              bookings={userBookings}
+              bookings={adminBookings}
               onCreateFlight={handleCreateFlight}
               onDeleteFlight={handleDeleteFlight}
               onUpdateStatus={handleUpdateFlightStatus}
               onCreateAirport={handleCreateAirport}
               onCreateAirline={handleCreateAirline}
               onCreateRoute={handleCreateRoute}
-              onSeatAction={handleSeatAction}
               formatMoney={formatMoney}
               formatDateTime={formatDateTime}
             />

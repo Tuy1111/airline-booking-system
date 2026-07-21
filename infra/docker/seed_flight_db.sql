@@ -1,3 +1,8 @@
+\c flight_db
+\set ON_ERROR_STOP on
+
+BEGIN;
+
 DELETE FROM flight_seat;
 DELETE FROM seat_inventory;
 DELETE FROM flight;
@@ -349,3 +354,5 @@ END $$;
 
 SELECT setval('route_id_seq', (SELECT MAX(id) FROM route));
 SELECT setval('flight_id_seq', (SELECT MAX(id) FROM flight));
+
+COMMIT;

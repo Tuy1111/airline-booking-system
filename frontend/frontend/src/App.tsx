@@ -46,6 +46,20 @@ function dateInputValue(date = new Date()) {
 
 const defaultSearchDate = dateInputValue()
 
+const emptySearch: FlightSearchParams = {
+  from: '',
+  to: '',
+  date: '',
+  passengers: 1,
+  status: '',
+  airline: '',
+  minPrice: '',
+  maxPrice: '',
+  dateTo: '',
+  sort: 'departureTime',
+  order: 'asc',
+}
+
 const moneyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
   currency: 'VND',
@@ -111,21 +125,10 @@ export function App() {
   const [routes, setRoutes] = useState<RouteInfo[]>([])
 
   // Search & Flight State
-  const [search, setSearch] = useState<FlightSearchParams>({
-    from: 'HAN',
-    to: 'SGN',
-    date: defaultSearchDate,
-    passengers: 1,
-    status: '',
-    airline: '',
-    minPrice: '',
-    maxPrice: '',
-    dateTo: '',
-    sort: 'departureTime',
-    order: 'asc',
-  })
+  const [search, setSearch] = useState<FlightSearchParams>({ ...emptySearch })
 
   const [flights, setFlights] = useState<FlightSummary[]>([])
+  const [searchError, setSearchError] = useState('')
   const [selectedFlight, setSelectedFlight] = useState<FlightDetail | null>(null)
   const [seats, setSeats] = useState<SeatMapItem[]>([])
   const [selectedSeat, setSelectedSeat] = useState('')
@@ -162,6 +165,13 @@ export function App() {
       .getRoutes()
       .then(setRoutes)
       .catch((err) => console.warn('Routes API error:', err))
+
+    setIsSearching(true)
+    flightApi
+      .searchFlights(emptySearch)
+      .then(setFlights)
+      .catch((err) => setSearchError(getErrorMessage(err)))
+      .finally(() => setIsSearching(false))
   }, [])
 
   // Fetch real User Data if logged in
@@ -206,11 +216,14 @@ export function App() {
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setIsSearching(true)
+    setSearchError('')
     try {
       const res = await flightApi.searchFlights(search)
       setFlights(res || [])
     } catch (err) {
-      addToast('error', getErrorMessage(err))
+      const message = getErrorMessage(err)
+      setSearchError(message)
+      addToast('error', message)
       setFlights([])
     } finally {
       setIsSearching(false)
@@ -219,10 +232,39 @@ export function App() {
     }
   }
 
-  const handleSelectPromoRoute = (from: string, to: string) => {
-    setSearch((prev) => ({ ...prev, from, to }))
+  const handleResetSearch = async () => {
+    const next = { ...emptySearch }
+    setSearch(next)
+    setTripType('one-way')
+    setIsSearching(true)
+    setSearchError('')
+    try {
+      setFlights((await flightApi.searchFlights(next)) || [])
+    } catch (err) {
+      const message = getErrorMessage(err)
+      setSearchError(message)
+      addToast('error', message)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleSelectPromoRoute = async (from: string, to: string) => {
+    const next = { ...emptySearch, from, to, date: defaultSearchDate }
+    setSearch(next)
     setActiveTab('search')
     setStep('list')
+    setIsSearching(true)
+    setSearchError('')
+    try {
+      setFlights((await flightApi.searchFlights(next)) || [])
+    } catch (err) {
+      const message = getErrorMessage(err)
+      setSearchError(message)
+      addToast('error', message)
+    } finally {
+      setIsSearching(false)
+    }
   }
 
   const handleSelectFlight = async (summary: FlightSummary) => {
@@ -487,8 +529,10 @@ export function App() {
                 airlines={airlines}
                 flights={flights}
                 onSearch={handleSearch}
+                onReset={handleResetSearch}
                 onSelectFlight={handleSelectFlight}
                 isLoading={isSearching}
+                error={searchError}
                 tripType={tripType}
                 setTripType={setTripType}
                 formatMoney={formatMoney}
@@ -498,8 +542,8 @@ export function App() {
             )}
 
             {step === 'seat' && selectedFlight && (
-              <div className="max-w-6xl mx-auto px-4 pt-24">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
+              <div className="booking-workflow booking-workflow-seat max-w-6xl mx-auto px-4 pt-24">
+                <div className="workflow-breadcrumb flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
                   <button
                     onClick={() => setActiveTab('home')}
                     className="hover:text-slate-900 flex items-center gap-1"
@@ -529,8 +573,8 @@ export function App() {
             )}
 
             {step === 'passenger-payment' && selectedFlight && (
-              <div className="max-w-6xl mx-auto px-4 pt-24">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
+              <div className="booking-workflow booking-workflow-payment max-w-6xl mx-auto px-4 pt-24">
+                <div className="workflow-breadcrumb flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
                   <button
                     onClick={() => setActiveTab('home')}
                     className="hover:text-slate-900 flex items-center gap-1"
@@ -575,7 +619,7 @@ export function App() {
 
         {/* TAB 3: MY BOOKINGS */}
         {activeTab === 'bookings' && (
-          <div className="pt-8">
+          <div className="route-shell route-bookings pt-8">
             <MyBookingsETicket
               bookings={userBookings}
               onCancelBooking={handleCancelBooking}
@@ -614,7 +658,7 @@ export function App() {
 
         {/* TAB 4: ADMIN DASHBOARD */}
         {activeTab === 'admin' && (
-          <div className="pt-8">
+          <div className="route-shell route-admin pt-8">
             <AdminDashboard
               flights={flights}
               airports={airports}

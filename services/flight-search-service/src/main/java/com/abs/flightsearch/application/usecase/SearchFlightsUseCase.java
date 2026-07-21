@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -41,21 +40,21 @@ public class SearchFlightsUseCase {
             FlightStatus status, String airline, BigDecimal minPrice, BigDecimal maxPrice,
             LocalDate dateTo, String sort, String order) {
 
-        if (date.isBefore(LocalDate.now())) {
+        if (date != null && date.isBefore(LocalDate.now())) {
             throw new IllegalArgumentException("Ngày tìm kiếm không thể ở quá khứ");
         }
-        if (!airportRepository.existsById(from)) {
+        if (date != null && dateTo != null && dateTo.isBefore(date)) {
+            throw new IllegalArgumentException("Ngày kết thúc phải từ ngày khởi hành trở đi");
+        }
+        if (hasText(from) && !airportRepository.existsById(from)) {
             throw new AirportNotFoundException(from);
         }
-        if (!airportRepository.existsById(to)) {
+        if (hasText(to) && !airportRepository.existsById(to)) {
             throw new AirportNotFoundException(to);
         }
 
-        LocalDateTime start = date.atStartOfDay();
-        LocalDateTime end = (dateTo != null) ? dateTo.atTime(23, 59, 59) : date.atTime(23, 59, 59);
-
-        FlightStatus queryStatus = status != null ? status : FlightStatus.SCHEDULED;
-        List<FlightAggregate> flights = flightRepository.searchFlights(from, to, start, end, queryStatus);
+        // ponytail: in-memory filters fit the current catalog; move predicates to the repository when volume grows.
+        List<FlightAggregate> flights = flightRepository.findAll();
 
         Counter.builder("flight.search")
                 .description("Number of flight searches")
@@ -66,7 +65,13 @@ public class SearchFlightsUseCase {
 
         Stream<FlightAndInventory> stream = flights.stream()
                 .map(flight -> new FlightAndInventory(flight, seatInventoryRepository.findById(flight.getId()).orElse(null)))
-                .filter(pair -> pair.inv() != null ? pair.inv().hasAvailableSeats(passengers) : pair.flight().getTotalSeats() >= passengers);
+                .filter(pair -> pair.inv() != null ? pair.inv().hasAvailableSeats(passengers) : pair.flight().getTotalSeats() >= passengers)
+                .filter(pair -> !hasText(from) || pair.flight().getRoute().getFromAirport().getIataCode().equalsIgnoreCase(from))
+                .filter(pair -> !hasText(to) || pair.flight().getRoute().getToAirport().getIataCode().equalsIgnoreCase(to))
+                .filter(pair -> status == null || pair.flight().getStatus() == status)
+                .filter(pair -> date == null || !pair.flight().getDepartureTime().toLocalDate().isBefore(date))
+                .filter(pair -> dateTo == null || !pair.flight().getDepartureTime().toLocalDate().isAfter(dateTo))
+                .filter(pair -> dateTo != null || date == null || pair.flight().getDepartureTime().toLocalDate().equals(date));
 
         // Apply advanced filters
         if (airline != null && !airline.isBlank()) {
@@ -103,5 +108,9 @@ public class SearchFlightsUseCase {
         }
 
         return responses;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

@@ -158,6 +158,12 @@ public class BookingService {
         return bookings.map(BookingDetailResponse::of);
     }
 
+    @Transactional(readOnly = true)
+    public Page<BookingDetailResponse> getAllBookings(String keyword, BookingStatus status, int page, int size) {
+        return bookingRepository.search(keyword, status, PageRequest.of(page, size))
+                .map(BookingDetailResponse::of);
+    }
+
     @Transactional
     public BookingDetailResponse cancelBooking(Long id, Long userId) {
         BookingAggregate booking = bookingRepository.findById(id)

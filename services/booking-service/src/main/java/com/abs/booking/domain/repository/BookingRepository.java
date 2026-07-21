@@ -14,5 +14,6 @@ public interface BookingRepository {
     Optional<BookingAggregate> findById(Long id);
     Optional<BookingAggregate> findByBookingCode(String bookingCode);
     Page<BookingAggregate> findByUserId(Long userId, Pageable pageable);
+    Page<BookingAggregate> search(String keyword, BookingStatus status, Pageable pageable);
     List<BookingAggregate> findExpiredHolds(BookingStatus status, LocalDateTime now);
 }

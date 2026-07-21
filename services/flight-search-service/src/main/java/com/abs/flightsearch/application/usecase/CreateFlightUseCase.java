@@ -6,6 +6,7 @@ import com.abs.flightsearch.domain.aggregate.*;
 import com.abs.flightsearch.domain.repository.*;
 import com.abs.flightsearch.domain.vo.SeatClass;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class CreateFlightUseCase {
     private final FlightSeatRepository flightSeatRepository;
 
     @Transactional
+    @CacheEvict(cacheNames = {"flightSearch", "upcomingFlights", "adminFlights"}, allEntries = true)
     public FlightDetailResponse execute(FlightCreateRequest req) {
         AirportAggregate fromAirport = airportRepository.findById(req.fromAirportCode())
                 .orElseThrow(() -> new IllegalArgumentException("Sân bay đi không tồn tại: " + req.fromAirportCode()));

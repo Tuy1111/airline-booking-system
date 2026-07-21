@@ -1,3 +1,5 @@
+import { accessToken } from '../auth/keycloak'
+
 export type QueryValue = string | number | boolean | null | undefined
 export type QueryParams = Record<string, QueryValue>
 
@@ -72,11 +74,13 @@ export async function apiRequest<T>(
   options: ApiRequestOptions = {},
 ): Promise<T> {
   const { body, query, headers, ...init } = options
+  const token = await accessToken()
   const response = await fetch(joinUrl(baseUrl, path, query), {
     ...init,
     headers: {
       Accept: 'application/json',
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),

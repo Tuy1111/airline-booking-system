@@ -153,4 +153,16 @@ public class FlightAggregate {
     public boolean isDelayed() {
         return this.status == FlightStatus.DELAYED;
     }
+
+    public boolean isBookableAt(LocalDateTime now) {
+        return this.status == FlightStatus.SCHEDULED
+                && this.departureTime != null
+                && this.departureTime.isAfter(now);
+    }
+
+    public void ensureBookableAt(LocalDateTime now) {
+        if (!isBookableAt(now)) {
+            throw new IllegalStateException("Chỉ chuyến bay đúng lịch và chưa khởi hành mới được đặt chỗ");
+        }
+    }
 }

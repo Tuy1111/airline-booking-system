@@ -1,43 +1,30 @@
 # Airline Booking Console
 
-React + TypeScript frontend for the Airline Booking System microservices.
+React + TypeScript frontend for the Airline Booking System.
 
 ## Architecture
 
-- `src/shared/api`: common HTTP client, error parsing, page helpers.
-- `src/shared/config`: service catalog and base URL configuration.
-- `src/features/flights`: flight-search-service client and DTOs.
-- `src/features/bookings`: booking-service client and DTOs.
-- `src/features/users`: user-service client and DTOs.
-- `src/features/payments`: payment-service client and DTOs.
-- `src/features/notifications`: notification-service client and DTOs.
-
-The UI intentionally calls the same REST paths as the backend (`/api/v1/...`). In development, Vite proxies each path to its owning service:
-
-| Path | Service |
-| --- | --- |
-| `/api/v1/flights`, `/api/v1/airports`, `/api/v1/airlines`, `/api/v1/routes` | `localhost:8081` |
-| `/api/v1/bookings` | `localhost:8082` |
-| `/bookings` | `localhost:8082` fallback for the current booking controller |
-| `/api/v1/users` | `localhost:8083` |
-| `/api/v1/payments` | `localhost:8084` |
-| `/api/v1/notifications` | `localhost:8085` |
-
-For a VPS backend, set:
-
-```bash
-VITE_BACKEND_HOST=http://143.198.213.125
-```
+- Every `/api/v1/**` request goes through the API Gateway (`localhost:8080` in development).
+- Login, registration, token refresh, and logout are handled by Keycloak through `keycloak-js`.
+- The browser never sends trusted identity headers; the Gateway derives them from the verified token.
+- Public flight search works without authentication. Booking, payment, profile, and notification APIs require a Keycloak access token.
 
 ## Run
+
+Start Keycloak, Eureka, the Gateway, and the backend services, then run:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Optional production/gateway config:
+Development defaults:
 
-```bash
-VITE_API_BASE_URL=http://localhost:8080 npm run dev
+```dotenv
+VITE_API_GATEWAY_URL=http://localhost:8080
+VITE_KEYCLOAK_URL=http://localhost:8180
+VITE_KEYCLOAK_REALM=airline-booking
+VITE_KEYCLOAK_CLIENT_ID=airline-frontend
 ```
+
+The imported demo account is `testuser` / `password`. Configure real credentials before exposing the system publicly.

@@ -7,7 +7,6 @@ import com.abs.flightsearch.domain.aggregate.AirportAggregate;
 import com.abs.flightsearch.domain.vo.FlightStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -32,6 +31,7 @@ public class FlightController {
     private final GetAirportsUseCase getAirportsUseCase;
     private final GetAirlinesUseCase getAirlinesUseCase;
     private final ImportFlightsUseCase importFlightsUseCase;
+    private final GetAllFlightsUseCase getAllFlightsUseCase;
 
     // P0 Usecases
     private final HoldSeatUseCase holdSeatUseCase;
@@ -49,9 +49,9 @@ public class FlightController {
 
     @GetMapping
     public ResponseEntity<List<FlightSearchResponse>> searchFlights(
-            @RequestParam(name = "from") @NotBlank String from,
-            @RequestParam(name = "to") @NotBlank String to,
-            @RequestParam(name = "date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(name = "from", required = false) String from,
+            @RequestParam(name = "to", required = false) String to,
+            @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(name = "passengers", defaultValue = "1") @Min(1) int passengers,
             @RequestParam(name = "status", required = false) FlightStatus status,
             @RequestParam(name = "airline", required = false) String airline,
@@ -69,6 +69,11 @@ public class FlightController {
     public ResponseEntity<FlightDetailResponse> getFlightDetail(@PathVariable("id") Long id) {
         FlightDetailResponse response = getFlightDetailUseCase.execute(id);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin")
+    public ResponseEntity<List<FlightSearchResponse>> getAllFlightsForAdmin() {
+        return ResponseEntity.ok(getAllFlightsUseCase.execute());
     }
 
     @GetMapping(ApiPath.SEATS)

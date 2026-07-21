@@ -4,6 +4,7 @@ import com.abs.flightsearch.application.dto.AirlineRequest;
 import com.abs.flightsearch.domain.aggregate.AirlineAggregate;
 import com.abs.flightsearch.domain.repository.AirlineRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ public class CreateAirlineUseCase {
     private final AirlineRepository airlineRepository;
 
     @Transactional
+    @CacheEvict(cacheNames = "airlines", allEntries = true)
     public AirlineAggregate execute(AirlineRequest req) {
         airlineRepository.findById(req.code()).ifPresent(existing -> {
             throw new IllegalStateException("Hãng bay đã tồn tại: " + req.code());

@@ -21,8 +21,10 @@ public class PaymentController {
     private final PaymentRepository repo;
 
     @PostMapping
-    public ResponseEntity<PaymentResponse> create(@Valid @RequestBody CreatePaymentRequest req) {
-        Payment p = service.createSePayPayment(req);
+    public ResponseEntity<PaymentResponse> create(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody CreatePaymentRequest req) {
+        Payment p = service.createSePayPayment(req, userId);
         return ResponseEntity.ok(PaymentResponse.of(p, service.buildQrUrl(p)));
     }
 

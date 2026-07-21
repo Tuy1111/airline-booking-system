@@ -1,4 +1,5 @@
--- Khởi tạo 5 database cho 5 microservices (chạy 1 lần khi container postgres khởi động lần đầu)
+-- Khởi tạo 5 database cho 5 microservices + 1 DB cho Keycloak
+-- (chạy 1 lần khi container postgres khởi động lần đầu)
 -- Database-per-Service pattern: mỗi service sở hữu schema riêng, không cross-DB query
 
 CREATE DATABASE flight_db;

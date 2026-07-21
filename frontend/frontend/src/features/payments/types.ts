@@ -3,7 +3,6 @@ export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED'
 
 export interface CreatePaymentRequest {
   bookingId: number
-  userId: number
   amount: number
   idempotencyKey: string
   method?: PaymentMethod

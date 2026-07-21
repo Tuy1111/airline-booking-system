@@ -12,7 +12,7 @@ import com.abs.payment.domain.aggregate.Payment;
 public interface CreateSePayPaymentUseCase {
 
     /** Tạo Payment mới (idempotent theo idempotencyKey). */
-    Payment createSePayPayment(CreatePaymentRequest req);
+    Payment createSePayPayment(CreatePaymentRequest req, Long userId);
 
     /** Dựng URL ảnh QR cho payment để hiển thị cho người dùng. */
     String buildQrUrl(Payment payment);

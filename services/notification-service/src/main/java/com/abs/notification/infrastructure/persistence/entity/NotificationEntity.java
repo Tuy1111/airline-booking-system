@@ -55,4 +55,7 @@ public class NotificationEntity {
 
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
+
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
 }

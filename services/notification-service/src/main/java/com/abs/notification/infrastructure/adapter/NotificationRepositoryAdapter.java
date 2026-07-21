@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +45,23 @@ public class NotificationRepositoryAdapter implements NotificationRepository {
     public Page<Notification> findByUserId(Long userId, Pageable pageable) {
         return repository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
                 .map(NotificationPersistenceMapper::toAggregate);
+    }
+
+    @Override
+    public Optional<Notification> findByIdAndUserId(Long id, Long userId) {
+        return repository.findByIdAndUserId(id, userId)
+                .map(NotificationPersistenceMapper::toAggregate);
+    }
+
+    @Override
+    public long countUnreadByUserId(Long userId) {
+        return repository.countByUserIdAndReadAtIsNull(userId);
+    }
+
+    @Override
+    @Transactional
+    public int markAllReadByUserId(Long userId, LocalDateTime readAt) {
+        return repository.markAllReadByUserId(userId, readAt);
     }
 
     @Override

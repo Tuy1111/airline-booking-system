@@ -5,10 +5,10 @@ spring:
   application:
     name: user-service
   datasource:
-    # Local -> Postgres trên VPS (host 5555). Docker override qua SPRING_DATASOURCE_URL -> postgres:5432
-    url: jdbc:postgresql://143.198.213.125:5555/user_db
-    username: abs
-    password: abs123
+    # Cấu hình đọc từ .env ở root repo. Docker override qua SPRING_DATASOURCE_URL -> postgres:5432
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/user_db
+    username: ${DB_USER}
+    password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -22,10 +22,6 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  mvc:
-    pathmatch:
-      base-path: /api/v1
-
 management:
   endpoints:
     web:
@@ -40,17 +36,10 @@ management:
   tracing:
     sampling:
       probability: 1.0
-    enabled: ${TRACING_ENABLED:false}
+    enabled: ${TRACING_ENABLED}
   zipkin:
     tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
-
-security:
-  jwt:
-    # HS256 secret — MUST be >= 32 bytes. Override via JWT_SECRET in any real environment.
-    secret: ${JWT_SECRET:dev-only-user-service-jwt-secret-change-me-0123456789abcdef}
-    ttl-seconds: ${JWT_TTL_SECONDS:3600}
-    issuer: user-service
+      endpoint: ${ZIPKIN_ENDPOINT}
 
 logging:
   pattern:
@@ -58,9 +47,9 @@ logging:
 
 eureka:
   instance:
-    hostname: localhost
+    # Khong set hostname: prefer-ip-address=true -> Eureka dang ky bang IP
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: ${EUREKA_URL}

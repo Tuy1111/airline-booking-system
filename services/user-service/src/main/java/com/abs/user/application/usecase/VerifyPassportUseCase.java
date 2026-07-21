@@ -3,6 +3,10 @@ package com.abs.user.application.usecase;
 import com.abs.user.application.command.SubmitPassportCommand;
 import com.abs.user.application.dto.UserView;
 import com.abs.user.application.exception.UserNotFoundException;
+import com.abs.user.application.port.out.KycVerificationPort;
+import com.abs.user.application.port.out.KycVerificationPort.VerificationResult;
+import com.abs.user.application.port.out.NotificationPort;
+import com.abs.user.application.port.out.NotificationPort.NotificationMessage;
 import com.abs.user.domain.aggregate.UserAggregate;
 import com.abs.user.domain.repository.UserRepository;
 import com.abs.user.domain.vo.CountryCode;
@@ -27,8 +31,9 @@ import java.time.LocalDate;
 public class VerifyPassportUseCase {
 
     private final UserRepository userRepository;
+    private final KycVerificationPort kycVerificationPort;
+    private final NotificationPort notificationPort;
 
-    @Transactional
     public UserView submitPassport(SubmitPassportCommand command) {
         log.info("Handling SubmitPassport command: userId={}, issuingCountry={}",
                 command.userId(), command.issuingCountry());
@@ -40,9 +45,21 @@ public class VerifyPassportUseCase {
                 command.expiryDate());
         user.submitPassport(passport, LocalDate.now());
 
-        UserAggregate saved = userRepository.save(user);
+        UserAggregate pending = userRepository.save(user);
         log.info("Passport submitted: userId={}, kycStatus={}",
-                saved.getId(), saved.getPassengerProfile().getKycStatus());
+                pending.getId(), pending.getPassengerProfile().getKycStatus());
+
+        VerificationResult result = kycVerificationPort.verify(passport);
+        if (result.isVerified()) {
+            pending.verifyPassport(LocalDate.now());
+        } else {
+            pending.rejectPassport();
+        }
+
+        UserAggregate saved = userRepository.save(pending);
+        log.info("Automatic KYC completed: userId={}, status={}, reason={}",
+                saved.getId(), saved.getPassengerProfile().getKycStatus(), result.reason());
+        notifyKycResult(command.userId(), result);
         return UserView.from(saved);
     }
 
@@ -69,5 +86,19 @@ public class VerifyPassportUseCase {
     private UserAggregate load(Long userId) {
         return userRepository.findById(UserId.of(userId))
                 .orElseThrow(() -> new UserNotFoundException(userId));
+    }
+
+    private void notifyKycResult(Long userId, VerificationResult result) {
+        String type = result.isVerified() ? "KYC_VERIFIED" : "KYC_REJECTED";
+        String title = result.isVerified() ? "Passport verification successful" : "Passport verification failed";
+        String content = result.isVerified()
+                ? "Your passport has been verified successfully."
+                : "Your passport could not be verified: " + result.reason();
+        try {
+            notificationPort.send(new NotificationMessage(userId, title, content, type));
+        } catch (RuntimeException ex) {
+            // Notification delivery is best-effort and must not undo an already persisted KYC decision.
+            log.warn("Could not notify user about KYC result: userId={}, type={}", userId, type, ex);
+        }
     }
 }

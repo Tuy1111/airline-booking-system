@@ -1,7 +1,19 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
+import { Header } from './components/Header'
+import { HeroSearch } from './components/HeroSearch'
+import { PopularDestinations } from './components/PopularDestinations'
+import { FlightSearchPage } from './components/FlightSearchPage'
+import { SeatPicker } from './components/SeatPicker'
+import { PassengerPayment } from './components/PassengerPayment'
+import { MyBookingsETicket } from './components/MyBookingsETicket'
+import { UserProfilePage } from './components/UserProfilePage'
+import { NotificationDrawer } from './components/NotificationDrawer'
+import { AdminDashboard } from './components/AdminDashboard'
+import { ToastContainer, type ToastMessage } from './components/ToastContainer'
+
 import { bookingApi } from './features/bookings/api'
-import type { BookingDetail, BookingStatus, HoldSeatResponse } from './features/bookings/types'
+import type { BookingDetail, HoldSeatResponse } from './features/bookings/types'
 import { flightApi } from './features/flights/api'
 import type {
   Airline,
@@ -9,7 +21,7 @@ import type {
   FlightCreateRequest,
   FlightDetail,
   FlightSearchParams,
-  FlightStatus,
+  FlightStatusUpdateRequest,
   FlightSummary,
   RouteInfo,
   SeatMapItem,
@@ -19,40 +31,35 @@ import type { NotificationItem } from './features/notifications/types'
 import { paymentApi } from './features/payments/api'
 import type { PaymentResponse } from './features/payments/types'
 import { userApi } from './features/users/api'
-import type { AuthResult } from './features/users/types'
-import { pageItems } from './shared/api/page'
-import heroImage from './assets/airline-hero.png'
-
-type AuthMode = 'login' | 'register'
-type PageMode = 'user' | 'admin'
-type BusyKey =
-  | 'catalog'
-  | 'auth'
-  | 'search'
-  | 'flight'
-  | 'hold'
-  | 'payment'
-  | 'bookings'
-  | 'notifications'
-  | 'admin'
-  | ''
-
-const authStorageKey = 'abs.frontend.auth'
+import type { UserView } from './features/users/types'
+import {
+  currentUser,
+  isAdminUser,
+  login as keycloakLogin,
+  logout as keycloakLogout,
+  register as keycloakRegister,
+} from './shared/auth/keycloak'
 
 function dateInputValue(date = new Date()) {
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
   return localDate.toISOString().slice(0, 10)
 }
 
-function dateTimeInputValue(daysFromNow: number, hour: number, minute: number) {
-  const date = new Date()
-  date.setDate(date.getDate() + daysFromNow)
-  date.setHours(hour, minute, 0, 0)
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-  return localDate.toISOString().slice(0, 16)
-}
-
 const defaultSearchDate = dateInputValue()
+
+const emptySearch: FlightSearchParams = {
+  from: '',
+  to: '',
+  date: '',
+  passengers: 1,
+  status: '',
+  airline: '',
+  minPrice: '',
+  maxPrice: '',
+  dateTo: '',
+  sort: 'departureTime',
+  order: 'asc',
+}
 
 const moneyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -65,44 +72,21 @@ const dateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
   timeStyle: 'short',
 })
 
-function readStoredAuth() {
-  const raw = localStorage.getItem(authStorageKey)
-  if (!raw) {
-    return null
-  }
-
-  try {
-    return JSON.parse(raw) as AuthResult
-  } catch {
-    localStorage.removeItem(authStorageKey)
-    return null
-  }
-}
-
 function formatMoney(value: number | string | null | undefined) {
   const amount = Number(value ?? 0)
   return moneyFormatter.format(Number.isFinite(amount) ? amount : 0)
 }
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) {
-    return 'Pending'
-  }
-
+  if (!value) return 'Pending'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
+  if (Number.isNaN(date.getTime())) return value
   return dateTimeFormatter.format(date)
 }
 
 function durationLabel(start: string, end: string) {
   const diff = new Date(end).getTime() - new Date(start).getTime()
-  if (!Number.isFinite(diff) || diff <= 0) {
-    return 'N/A'
-  }
-
+  if (!Number.isFinite(diff) || diff <= 0) return 'N/A'
   const minutes = Math.round(diff / 60000)
   const hours = Math.floor(minutes / 60)
   const remainder = minutes % 60
@@ -113,1111 +97,721 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error)
 }
 
-function nextFlightNo() {
-  return `VN${Math.floor(300 + Math.random() * 600)}`
-}
+export function App() {
+  const [auth] = useState(() => currentUser())
+  const isAdmin = isAdminUser(auth)
+  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'bookings' | 'profile' | 'admin'>('home')
+  const [step, setStep] = useState<'list' | 'seat' | 'passenger-payment'>('list')
+  const [tripType, setTripType] = useState<'one-way' | 'round-trip'>('round-trip')
 
-function statusTone(status: string) {
-  if (['SCHEDULED', 'AVAILABLE', 'SUCCESS', 'SENT', 'CONFIRMED'].includes(status)) {
-    return 'success'
+  // Toast Notification System
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+
+  const addToast = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
+    const id = Date.now().toString() + Math.random().toString().slice(2, 6)
+    setToasts((prev) => [...prev, { id, type, message }])
   }
 
-  if (['HELD', 'PENDING', 'DELAYED'].includes(status)) {
-    return 'warning'
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
   }
 
-  if (['BOOKED', 'CANCELLED', 'FAILED', 'EXPIRED', 'DEPARTED'].includes(status)) {
-    return 'danger'
-  }
+  const [isSearching, setIsSearching] = useState(false)
+  const [isHolding, setIsHolding] = useState(false)
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false)
+  const [isProfileUpdating, setIsProfileUpdating] = useState(false)
 
-  return 'neutral'
-}
-
-function sortSeats(seats: SeatMapItem[]) {
-  return [...seats].sort((a, b) => {
-    const left = /^(\d+)([A-Z])$/.exec(a.seatNo)
-    const right = /^(\d+)([A-Z])$/.exec(b.seatNo)
-    const leftRow = left ? Number(left[1]) : 0
-    const rightRow = right ? Number(right[1]) : 0
-
-    if (leftRow !== rightRow) {
-      return leftRow - rightRow
-    }
-
-    return a.seatNo.localeCompare(b.seatNo)
-  })
-}
-
-function groupSeats(seats: SeatMapItem[]) {
-  return sortSeats(seats).reduce<{ row: string; seats: SeatMapItem[] }[]>((rows, seat) => {
-    const match = /^(\d+)/.exec(seat.seatNo)
-    const row = match?.[1] ?? 'Other'
-    const current = rows.at(-1)
-
-    if (current?.row === row) {
-      current.seats.push(seat)
-    } else {
-      rows.push({ row, seats: [seat] })
-    }
-
-    return rows
-  }, [])
-}
-
-function Badge({ value }: { value: string }) {
-  return <span className={`badge ${statusTone(value)}`}>{value}</span>
-}
-
-function App() {
-  const [page, setPage] = useState<PageMode>('user')
-  const [busy, setBusy] = useState<BusyKey>('')
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-
-  const [authMode, setAuthMode] = useState<AuthMode>('login')
-  const [auth, setAuth] = useState<AuthResult | null>(() => readStoredAuth())
-  const [demoUserId, setDemoUserId] = useState('1')
-  const [authForm, setAuthForm] = useState({
-    email: 'demo@abs.local',
-    rawPassword: 'Password123!',
-    fullName: 'Demo Passenger',
-    phone: '0900000000',
-  })
-
+  // Master Data loaded directly from backend API
   const [airports, setAirports] = useState<Airport[]>([])
   const [airlines, setAirlines] = useState<Airline[]>([])
   const [routes, setRoutes] = useState<RouteInfo[]>([])
 
-  const [search, setSearch] = useState<FlightSearchParams>({
-    from: 'HAN',
-    to: 'SGN',
-    date: defaultSearchDate,
-    passengers: 1,
-    status: '',
-    airline: '',
-    minPrice: '',
-    maxPrice: '',
-    dateTo: '',
-    sort: 'departureTime',
-    order: 'asc',
-  })
+  // Search & Flight State
+  const [search, setSearch] = useState<FlightSearchParams>({ ...emptySearch })
+
   const [flights, setFlights] = useState<FlightSummary[]>([])
-  const [flightDetail, setFlightDetail] = useState<FlightDetail | null>(null)
+  const [searchError, setSearchError] = useState('')
+  const [selectedFlight, setSelectedFlight] = useState<FlightDetail | null>(null)
   const [seats, setSeats] = useState<SeatMapItem[]>([])
   const [selectedSeat, setSelectedSeat] = useState('')
   const [manualSeat, setManualSeat] = useState('1A')
 
-  const [passengerName, setPassengerName] = useState('Demo Passenger')
+  // Booking & Payment State
+  const [passengerName, setPassengerName] = useState(auth?.fullName || 'Nguyen Van A')
   const [passengerPassport, setPassengerPassport] = useState('P1234567')
   const [extraBaggageKg, setExtraBaggageKg] = useState<number>(0)
   const [holdResult, setHoldResult] = useState<HoldSeatResponse | null>(null)
 
-  const [activeBooking, setActiveBooking] = useState<BookingDetail | null>(null)
-  const [bookingStatus, setBookingStatus] = useState<BookingStatus | ''>('')
-  const [bookings, setBookings] = useState<BookingDetail[]>([])
   const [payment, setPayment] = useState<PaymentResponse | null>(null)
-  const [bookingPayments, setBookingPayments] = useState<PaymentResponse[]>([])
+  const [userBookings, setUserBookings] = useState<BookingDetail[]>([])
+  const [adminFlights, setAdminFlights] = useState<FlightSummary[]>([])
+  const [adminBookings, setAdminBookings] = useState<BookingDetail[]>([])
+
+  // User Profile State
+  const [userProfile, setUserProfile] = useState<UserView | null>(null)
+  const [isProfileLoading, setIsProfileLoading] = useState(false)
+
+  // Notifications State
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false)
 
-  const [flightForm, setFlightForm] = useState<FlightCreateRequest>({
-    flightNo: nextFlightNo(),
-    fromAirportCode: 'HAN',
-    toAirportCode: 'SGN',
-    airlineCode: 'VN',
-    departureTime: dateTimeInputValue(1, 9, 0),
-    arrivalTime: dateTimeInputValue(1, 11, 15),
-    totalSeats: 60,
-    basePrice: 1400000,
-    aircraftType: 'Airbus A321',
-  })
-
-  const userId = auth?.user.id ?? Number(demoUserId || 1)
-  const seatRows = useMemo(() => groupSeats(seats), [seats])
-  const availableSeats = useMemo(
-    () => seats.filter((seat) => seat.status === 'AVAILABLE').length,
-    [seats],
-  )
-
+  // Fetch real master data from backend APIs on startup
   useEffect(() => {
-    void refreshCatalog()
+    flightApi
+      .getAirports()
+      .then((items) => items.length && setAirports(items))
+      .catch((err) => console.warn('Airports API error:', err))
+
+    flightApi
+      .getAirlines()
+      .then((items) => items.length && setAirlines(items))
+      .catch((err) => console.warn('Airlines API error:', err))
+
+    flightApi
+      .getRoutes()
+      .then(setRoutes)
+      .catch((err) => console.warn('Routes API error:', err))
+
+    setIsSearching(true)
+    flightApi
+      .searchFlights(emptySearch)
+      .then((items) => {
+        setFlights(items)
+        setAirports((current) => {
+          const options = new Map(current.map((airport) => [airport.iataCode, airport]))
+          items.forEach((flight) => {
+            options.set(flight.fromAirport, options.get(flight.fromAirport) ?? { iataCode: flight.fromAirport, city: flight.fromCity, name: flight.fromCity, country: 'VN' })
+            options.set(flight.toAirport, options.get(flight.toAirport) ?? { iataCode: flight.toAirport, city: flight.toCity, name: flight.toCity, country: 'VN' })
+          })
+          return [...options.values()]
+        })
+        setAirlines((current) => {
+          const options = new Map(current.map((airline) => [airline.code, airline]))
+          items.forEach((flight) => options.set(flight.airlineCode, { code: flight.airlineCode, name: flight.airlineName }))
+          return [...options.values()]
+        })
+      })
+      .catch((err) => setSearchError(getErrorMessage(err)))
+      .finally(() => setIsSearching(false))
   }, [])
 
-  async function run(action: () => Promise<void>, key: BusyKey) {
-    setBusy(key)
-    setError('')
-    setNotice('')
+  // Fetch real User Data if logged in
+  useEffect(() => {
+    if (auth) {
+      if (!isAdmin) loadUserBookings()
+      loadUserProfile()
+    }
+  }, [auth, isAdmin])
 
+  useEffect(() => {
+    if (!auth) {
+      setNotifications([])
+      setUnreadNotificationsCount(0)
+      return
+    }
+
+    loadNotifications()
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadNotifications()
+    }, 30_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [auth])
+
+  // Poll an active SePay payment until the backend reaches a terminal state.
+  // The webhook updates the backend asynchronously, so the payment screen
+  // must not rely on the user clicking the manual status-check button.
+  useEffect(() => {
+    if (!payment || payment.status !== 'PENDING') return
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const latest = await paymentApi.getPayment(payment.id)
+        setPayment(latest)
+        if (latest.status === 'SUCCESS') {
+          addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
+          loadUserBookings()
+        } else if (latest.status === 'FAILED') {
+          addToast('error', 'Thanh toán thất bại hoặc đã hết hạn giữ ghế.')
+        }
+      } catch (err) {
+        console.warn('Could not poll payment status:', err)
+      }
+    }, 3000)
+
+    return () => window.clearInterval(intervalId)
+  }, [payment?.id, payment?.status])
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'admin') loadAdminData()
+  }, [activeTab, isAdmin])
+
+  const loadUserProfile = async () => {
+    setIsProfileLoading(true)
     try {
-      await action()
-    } catch (caught) {
-      setError(getErrorMessage(caught))
+      const p = await userApi.getProfile()
+      setUserProfile(p)
+    } catch (err) {
+      console.warn('Could not load user profile:', err)
     } finally {
-      setBusy('')
+      setIsProfileLoading(false)
     }
   }
 
-  async function refreshCatalog() {
-    await run(async () => {
-      const [airportData, airlineData, routeData] = await Promise.all([
-        flightApi.getAirports(),
-        flightApi.getAirlines(),
-        flightApi.getRoutes(),
+  const loadUserBookings = async () => {
+    try {
+      const res = await bookingApi.getMine()
+      setUserBookings(res.content || [])
+    } catch (err) {
+      console.warn('Could not load user bookings:', err)
+    }
+  }
+
+  const loadNotifications = async () => {
+    try {
+      const [res, unread] = await Promise.all([
+        notificationApi.mine(),
+        notificationApi.unreadCount(),
       ])
-      setAirports(airportData)
-      setAirlines(airlineData)
-      setRoutes(routeData)
-    }, 'catalog')
+      setNotifications(res.content || [])
+      setUnreadNotificationsCount(unread.unreadCount)
+    } catch (err) {
+      console.warn('Could not load notifications:', err)
+    }
   }
 
-  async function handleAuth(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    await run(async () => {
-      const result =
-        authMode === 'login'
-          ? await userApi.login({
-              email: authForm.email,
-              rawPassword: authForm.rawPassword,
-            })
-          : await userApi.register(authForm)
-
-      setAuth(result)
-      setDemoUserId(String(result.user.id))
-      setPassengerName(result.user.fullName)
-      localStorage.setItem(authStorageKey, JSON.stringify(result))
-      setNotice(`Signed in as ${result.user.fullName}`)
-    }, 'auth')
+  const handleToggleNotifications = () => {
+    const opening = !isNotificationDrawerOpen
+    setIsNotificationDrawerOpen(opening)
+    if (opening) loadNotifications()
   }
 
-  function logout() {
-    setAuth(null)
-    localStorage.removeItem(authStorageKey)
-    setNotice('Signed out. Demo X-User-Id is still available for booking calls.')
+  const handleMarkNotificationRead = async (id: number) => {
+    const current = notifications.find((item) => item.id === id)
+    if (!current || current.readAt) return
+
+    try {
+      const updated = await notificationApi.markRead(id)
+      setNotifications((items) => items.map((item) => (item.id === id ? updated : item)))
+      setUnreadNotificationsCount((count) => Math.max(0, count - 1))
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
   }
 
-  async function handleSearch(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault()
-
-    await run(async () => {
-      const data = await flightApi.searchFlights(search)
-      setFlights(data)
-      setFlightDetail(null)
-      setSeats([])
-      setSelectedSeat('')
-      setHoldResult(null)
-      setActiveBooking(null)
-      setPayment(null)
-      setBookingPayments([])
-      if (data.length === 0) {
-        setNotice('No flights matched this search.')
-      }
-    }, 'search')
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await notificationApi.markAllRead()
+      const readAt = new Date().toISOString()
+      setNotifications((items) => items.map((item) => ({ ...item, readAt: item.readAt ?? readAt })))
+      setUnreadNotificationsCount(0)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
   }
 
-  async function loadFlight(flightId: number) {
-    await run(async () => {
+  const loadAdminData = async () => {
+    try {
+      const [flightItems, firstBookingPage] = await Promise.all([
+        flightApi.getAdminFlights(),
+        bookingApi.getAdminBookings(),
+      ])
+      const remainingBookingPages = firstBookingPage.totalPages > 1
+        ? await Promise.all(
+            Array.from(
+              { length: firstBookingPage.totalPages - 1 },
+              (_, index) => bookingApi.getAdminBookings(index + 1),
+            ),
+          )
+        : []
+      setAdminFlights(flightItems || [])
+      setAdminBookings([
+        ...(firstBookingPage.content || []),
+        ...remainingBookingPages.flatMap((page) => page.content || []),
+      ])
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    setIsSearching(true)
+    setSearchError('')
+    try {
+      const res = await flightApi.searchFlights(search)
+      setFlights(res || [])
+    } catch (err) {
+      const message = getErrorMessage(err)
+      setSearchError(message)
+      addToast('error', message)
+      setFlights([])
+    } finally {
+      setIsSearching(false)
+      setActiveTab('search')
+      setStep('list')
+    }
+  }
+
+  const handleResetSearch = async () => {
+    const next = { ...emptySearch }
+    setSearch(next)
+    setTripType('one-way')
+    setIsSearching(true)
+    setSearchError('')
+    try {
+      setFlights((await flightApi.searchFlights(next)) || [])
+    } catch (err) {
+      const message = getErrorMessage(err)
+      setSearchError(message)
+      addToast('error', message)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleSelectPromoRoute = async (from: string, to: string) => {
+    const next = { ...emptySearch, from, to, date: defaultSearchDate }
+    setSearch(next)
+    setActiveTab('search')
+    setStep('list')
+    setIsSearching(true)
+    setSearchError('')
+    try {
+      setFlights((await flightApi.searchFlights(next)) || [])
+    } catch (err) {
+      const message = getErrorMessage(err)
+      setSearchError(message)
+      addToast('error', message)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleSelectFlight = async (summary: FlightSummary) => {
+    if (isAdmin) {
+      addToast('warning', 'Tài khoản quản trị không được đặt vé.')
+      return
+    }
+    try {
       const [detail, seatMap] = await Promise.all([
-        flightApi.getFlight(flightId),
-        flightApi.getSeatMap(flightId),
+        flightApi.getFlight(summary.id),
+        flightApi.getSeatMap(summary.id),
       ])
-      setFlightDetail(detail)
-      setSeats(seatMap)
+      setSelectedFlight(detail)
+      setSeats(seatMap || [])
       setSelectedSeat('')
       setHoldResult(null)
-      setActiveBooking(null)
       setPayment(null)
-      setBookingPayments([])
-      if (seatMap.length > 0) {
-        setManualSeat(seatMap.find((seat) => seat.status === 'AVAILABLE')?.seatNo ?? seatMap[0].seatNo)
-      }
-    }, 'flight')
+      setStep('seat')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
   }
 
-  async function holdSeat() {
-    await run(async () => {
-      if (!flightDetail) {
-        throw new Error('Select a flight first.')
-      }
-
-      const seatNo = selectedSeat || manualSeat.trim().toUpperCase()
-      if (!seatNo) {
-        throw new Error('Select or enter a seat number.')
-      }
-
-      const held = await bookingApi.holdSeat(userId, {
-        flightId: flightDetail.id,
-        seatNo,
-        passengerName: passengerName.trim(),
-        passengerPassport: passengerPassport.trim() || undefined,
+  const handleHoldSeat = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (isAdmin) {
+      addToast('warning', 'Tài khoản quản trị không được giữ chỗ.')
+      return
+    }
+    if (!auth) {
+      keycloakLogin()
+      return
+    }
+    if (!selectedFlight || !selectedSeat) return
+    setIsHolding(true)
+    try {
+      const res = await bookingApi.holdSeat({
+        flightId: selectedFlight.id,
+        seatNo: selectedSeat,
+        passengerName,
+        passengerPassport,
         extraBaggageKg,
       })
-
-      const booking = await bookingApi.getBooking(held.bookingId)
-
-      setHoldResult(held)
-      setActiveBooking(booking)
-      setNotice(`Booking ${held.bookingCode} is held until ${formatDateTime(held.holdExpiresAt)}.`)
-      await loadFlight(flightDetail.id)
-      await loadBookings()
-    }, 'hold')
+      setHoldResult(res)
+      addToast('success', 'Giữ ghế thành công! Vui lòng tiến hành thanh toán.')
+      loadUserBookings()
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    } finally {
+      setIsHolding(false)
+    }
   }
 
-  async function createPayment() {
-    await run(async () => {
-      const booking = activeBooking
-      const held = holdResult
-      const bookingId = booking?.id ?? held?.bookingId
-      const amount = booking?.totalAmount ?? held?.price
-
-      if (!bookingId || !amount) {
-        throw new Error('Hold a booking before creating payment.')
-      }
-
-      const paymentData = await paymentApi.createPayment({
-        bookingId,
-        userId,
-        amount,
+  const handleCreatePayment = async () => {
+    if (isAdmin) {
+      addToast('warning', 'Tài khoản quản trị không được thanh toán.')
+      return
+    }
+    if (!holdResult) return
+    setIsCreatingPayment(true)
+    try {
+      const res = await paymentApi.createPayment({
+        bookingId: holdResult.bookingId,
+        amount: holdResult.price,
+        idempotencyKey: `web-${holdResult.bookingId}-${Date.now()}`,
         method: 'BANK_TRANSFER',
-        idempotencyKey: `web-${bookingId}-${Date.now()}`,
       })
-      const related = await paymentApi.getByBooking(bookingId)
-
-      setPayment(paymentData)
-      setBookingPayments(related)
-      setNotice(`Payment ${paymentData.paymentCode} created.`)
-    }, 'payment')
+      setPayment(res)
+      addToast('success', 'Đã tạo mã QR VietQR cho đơn hàng!')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    } finally {
+      setIsCreatingPayment(false)
+    }
   }
 
-  async function refreshPayment() {
-    await run(async () => {
-      if (!payment) {
-        throw new Error('Create a payment first.')
+  const handleCheckPaymentStatus = async () => {
+    if (!payment) return
+    try {
+      const res = await paymentApi.getPayment(payment.id)
+      setPayment(res)
+      if (res.status === 'SUCCESS') {
+        addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
+        loadUserBookings()
+      } else {
+        addToast('info', `Trạng thái thanh toán hiện tại: ${res.status}`)
       }
-
-      const paymentData = await paymentApi.getPayment(payment.id)
-      setPayment(paymentData)
-      setNotice(`Payment status: ${paymentData.status}`)
-    }, 'payment')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
   }
 
-  async function loadBookings() {
-    await run(async () => {
-      const data = await bookingApi.getMyBookings(userId, bookingStatus)
-      setBookings(pageItems(data))
-    }, 'bookings')
+  const handleCancelBooking = async (id: number) => {
+    try {
+      await bookingApi.cancelBooking(id)
+      addToast('success', `Đã hủy booking #${id} thành công!`)
+      loadUserBookings()
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
   }
 
-  async function cancelBooking(bookingId: number) {
-    await run(async () => {
-      const booking = await bookingApi.cancelBooking(bookingId, userId)
-      setActiveBooking(booking)
-      setNotice(`Booking ${booking.bookingCode} is ${booking.status}.`)
-      await loadBookings()
-    }, 'bookings')
+  // User Profile handlers
+  const handleUpdateProfile = async (data: any) => {
+    setIsProfileUpdating(true)
+    try {
+      const updated = await userApi.updateProfile(data)
+      setUserProfile(updated)
+      addToast('success', 'Đã cập nhật thông tin cá nhân!')
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    } finally {
+      setIsProfileUpdating(false)
+    }
   }
 
-  async function loadNotifications() {
-    await run(async () => {
-      const data = await notificationApi.byUser(userId)
-      setNotifications(pageItems(data))
-    }, 'notifications')
+  const handleSubmitPassport = async (data: any) => {
+    setIsProfileUpdating(true)
+    try {
+      const updated = await userApi.submitPassport(data)
+      setUserProfile(updated)
+      await loadNotifications()
+      addToast(
+        updated.kycStatus === 'VERIFIED' ? 'success' : 'warning',
+        updated.kycStatus === 'VERIFIED'
+          ? 'Hộ chiếu đã được xác minh thành công!'
+          : 'Hộ chiếu không được chấp nhận.',
+      )
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    } finally {
+      setIsProfileUpdating(false)
+    }
   }
 
-  async function createFlight(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  const handleEarnMiles = async (miles: number, reason: string) => {
+    try {
+      const updated = await userApi.earnMiles({ miles, reason })
+      setUserProfile(updated)
+      addToast('success', `Đã cộng ${miles} dặm thưởng thành công!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
 
-    await run(async () => {
-      const flight = await flightApi.createFlight(flightForm)
-      setNotice(`Created flight ${flight.flightNo} with ${flight.totalSeats} seats.`)
-      setSearch((current) => ({
-        ...current,
-        from: flight.fromAirport,
-        to: flight.toAirport,
-        date: flight.departureTime.slice(0, 10),
-      }))
-      setFlightForm((current) => ({
-        ...current,
-        flightNo: nextFlightNo(),
-      }))
-      await handleSearch()
-    }, 'admin')
+  const handleRedeemMiles = async (miles: number, reason: string) => {
+    try {
+      const updated = await userApi.redeemMiles({ miles, reason })
+      setUserProfile(updated)
+      addToast('success', `Đã đổi ${miles} dặm thưởng thành công!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  // Admin Handlers
+  const handleCreateFlight = async (req: FlightCreateRequest) => {
+    try {
+      await flightApi.createFlight(req)
+      addToast('success', 'Đã tạo chuyến bay mới thành công!')
+      loadAdminData()
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  const handleDeleteFlight = async (id: number) => {
+    try {
+      await flightApi.deleteFlight(id)
+      addToast('success', `Đã xóa chuyến bay #${id}!`)
+      loadAdminData()
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  const handleUpdateFlightStatus = async (id: number, req: FlightStatusUpdateRequest) => {
+    try {
+      await flightApi.updateStatus(id, req)
+      addToast('success', 'Đã cập nhật trạng thái chuyến bay!')
+      loadAdminData()
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  const handleCreateAirport = async (data: any) => {
+    try {
+      const created = await flightApi.createAirport(data)
+      setAirports((prev) => [...prev, created])
+      addToast('success', `Đã tạo sân bay ${data.iataCode}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  const handleCreateAirline = async (data: any) => {
+    try {
+      const created = await flightApi.createAirline(data)
+      setAirlines((prev) => [...prev, created])
+      addToast('success', `Đã tạo hãng bay ${data.code}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  const handleCreateRoute = async (data: any) => {
+    try {
+      const created = await flightApi.createRoute(data)
+      setRoutes((prev) => [...prev, created])
+      addToast('success', `Đã tạo đường bay ${data.fromAirport} ➔ ${data.toAirport}!`)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
   }
 
   return (
-    <main className="site-shell">
-      <header className="site-header">
-        <button type="button" className="brand-mark" onClick={() => setPage('user')}>
-          <span>AS</span>
-          <strong>AeroSky</strong>
-        </button>
+    <div className={`site-shell ${activeTab === 'admin' ? 'admin-mode' : ''}`}>
+      <a className="skip-link" href="#main-content">Bỏ qua điều hướng</a>
+      {/* Floating Toast Container */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-        <nav className="page-nav" aria-label="Trang chính">
-          <button
-            type="button"
-            className={page === 'user' ? 'active' : ''}
-            onClick={() => setPage('user')}
-          >
-            Người dùng
-          </button>
-          <button
-            type="button"
-            className={page === 'admin' ? 'active' : ''}
-            onClick={() => setPage('admin')}
-          >
-            Admin
-          </button>
-        </nav>
+      {/* Glass Navigation Header */}
+      <Header
+        activeTab={activeTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab)
+          if (tab === 'search') setStep('list')
+        }}
+        user={auth}
+        onLogin={keycloakLogin}
+        onLogout={keycloakLogout}
+        onRegister={keycloakRegister}
+        unreadNotificationsCount={unreadNotificationsCount}
+        onToggleNotifications={handleToggleNotifications}
+      />
 
-        <div className="header-actions">
-          <button type="button" className="text-button" onClick={() => void refreshCatalog()}>
-            Làm mới dữ liệu
-          </button>
-          <div className="user-chip">
-            <span>{auth ? auth.user.fullName : `Khách #${userId || 1}`}</span>
-            <small>{auth ? auth.user.email : 'Chế độ demo'}</small>
-          </div>
-        </div>
-      </header>
-
-      {(error || notice) && (
-        <div className={`message ${error ? 'error' : 'notice'}`}>
-          <strong>{error ? 'Không thể xử lý' : 'Cập nhật'}</strong>
-          <span>{error || notice}</span>
-        </div>
-      )}
-
-      {page === 'user' && (
-        <>
-          <section className="booking-hero">
-            <img src={heroImage} alt="" aria-hidden="true" />
-            <div className="hero-overlay"></div>
-            <div className="hero-content">
-              <div className="hero-copy">
-                <p className="eyebrow light">Chuyến bay nội địa và quốc tế</p>
-                <h1>Đặt vé máy bay rõ ràng, nhanh và chắc chỗ.</h1>
-                <p>
-                  Tìm chuyến bay, chọn ghế, giữ chỗ và thanh toán QR trong cùng một hành trình.
-                </p>
-                <div className="hero-stats">
-                  <div>
-                    <strong>{airports.length || 4}</strong>
-                    <span>Sân bay</span>
-                  </div>
-                  <div>
-                    <strong>{airlines.length || 3}</strong>
-                    <span>Hãng bay</span>
-                  </div>
-                  <div>
-                    <strong>{routes.length || 6}</strong>
-                    <span>Tuyến bay</span>
-                  </div>
-                </div>
-              </div>
-
-              <form className="booking-card" onSubmit={(event) => void handleSearch(event)}>
-                <div className="booking-card-head">
-                  <div>
-                    <p className="eyebrow">Tìm vé</p>
-                    <h2>Hành trình của bạn</h2>
-                  </div>
-                  <div className="trip-pills" aria-label="Loại hành trình">
-                    <span className="active">Một chiều</span>
-                    <span>Khứ hồi</span>
-                  </div>
-                </div>
-
-                <div className="search-grid">
-                  <label>
-                    Điểm đi
-                    <select
-                      value={search.from}
-                      onChange={(event) => setSearch({ ...search, from: event.target.value })}
-                    >
-                      {airports.map((airport) => (
-                        <option key={airport.iataCode} value={airport.iataCode}>
-                          {airport.iataCode} - {airport.city}
-                        </option>
-                      ))}
-                      {airports.length === 0 && <option value="HAN">HAN - Hà Nội</option>}
-                    </select>
-                  </label>
-                  <label>
-                    Điểm đến
-                    <select
-                      value={search.to}
-                      onChange={(event) => setSearch({ ...search, to: event.target.value })}
-                    >
-                      {airports.map((airport) => (
-                        <option key={airport.iataCode} value={airport.iataCode}>
-                          {airport.iataCode} - {airport.city}
-                        </option>
-                      ))}
-                      {airports.length === 0 && <option value="SGN">SGN - TP.HCM</option>}
-                    </select>
-                  </label>
-                  <label>
-                    Ngày bay
-                    <input
-                      type="date"
-                      value={search.date}
-                      onChange={(event) => setSearch({ ...search, date: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Hành khách
-                    <input
-                      min="1"
-                      type="number"
-                      value={search.passengers}
-                      onChange={(event) =>
-                        setSearch({ ...search, passengers: Number(event.target.value || 1) })
-                      }
-                    />
-                  </label>
-                  <label>
-                    Hãng bay
-                    <select
-                      value={search.airline}
-                      onChange={(event) => setSearch({ ...search, airline: event.target.value })}
-                    >
-                      <option value="">Tất cả</option>
-                      {airlines.map((airline) => (
-                        <option key={airline.code} value={airline.code}>
-                          {airline.code} - {airline.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Trạng thái
-                    <select
-                      value={search.status}
-                      onChange={(event) =>
-                        setSearch({ ...search, status: event.target.value as FlightStatus | '' })
-                      }
-                    >
-                      <option value="">Tất cả</option>
-                      <option value="SCHEDULED">Đúng lịch</option>
-                      <option value="DELAYED">Trễ chuyến</option>
-                      <option value="CANCELLED">Đã hủy</option>
-                    </select>
-                  </label>
-                </div>
-
-                <div className="booking-card-actions">
-                  <button type="submit" className="primary-button large" disabled={busy === 'search'}>
-                    {busy === 'search' ? 'Đang tìm...' : 'Tìm chuyến bay'}
-                  </button>
-                  <span>Ngày đang chọn: {search.date}</span>
-                </div>
-              </form>
-            </div>
-          </section>
-
-          <section className="content-shell">
-            <section className="account-panel">
-              <div>
-                <p className="eyebrow">Tài khoản</p>
-                <h3>{auth ? `Xin chào, ${auth.user.fullName}` : 'Đăng nhập hoặc dùng khách demo'}</h3>
-              </div>
-
-              <form className="auth-form" onSubmit={(event) => void handleAuth(event)}>
-                <div className="segmented" aria-label="Authentication mode">
-                  <button
-                    type="button"
-                    className={authMode === 'login' ? 'active' : ''}
-                    onClick={() => setAuthMode('login')}
-                  >
-                    Đăng nhập
-                  </button>
-                  <button
-                    type="button"
-                    className={authMode === 'register' ? 'active' : ''}
-                    onClick={() => setAuthMode('register')}
-                  >
-                    Đăng ký
-                  </button>
-                </div>
-                <label>
-                  Email
-                  <input
-                    value={authForm.email}
-                    onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-                    type="email"
-                  />
-                </label>
-                <label>
-                  Mật khẩu
-                  <input
-                    value={authForm.rawPassword}
-                    onChange={(event) => setAuthForm({ ...authForm, rawPassword: event.target.value })}
-                    type="password"
-                  />
-                </label>
-                {authMode === 'register' && (
-                  <>
-                    <label>
-                      Họ tên
-                      <input
-                        value={authForm.fullName}
-                        onChange={(event) => setAuthForm({ ...authForm, fullName: event.target.value })}
-                      />
-                    </label>
-                    <label>
-                      Số điện thoại
-                      <input
-                        value={authForm.phone}
-                        onChange={(event) => setAuthForm({ ...authForm, phone: event.target.value })}
-                      />
-                    </label>
-                  </>
-                )}
-                <button type="submit" className="primary-button" disabled={busy === 'auth'}>
-                  {busy === 'auth' ? 'Đang xử lý' : authMode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
-                </button>
-              </form>
-
-              <div className="identity-box">
-                {auth ? (
-                  <>
-                    <strong>{auth.user.fullName}</strong>
-                    <span>{auth.user.email}</span>
-                    <div className="identity-meta">
-                      <Badge value={auth.user.status} />
-                      <Badge value={auth.user.kycStatus} />
-                      <Badge value={auth.user.loyaltyTier} />
-                    </div>
-                    <button type="button" className="ghost-button" onClick={logout}>
-                      Đăng xuất
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <strong>Khách demo</strong>
-                    <span>Dùng mã khách để tạo booking thử nghiệm.</span>
-                    <label>
-                      Mã khách
-                      <input value={demoUserId} onChange={(event) => setDemoUserId(event.target.value)} />
-                    </label>
-                  </>
-                )}
-              </div>
-            </section>
-
-            <section className="booking-layout">
-              <div className="main-column">
-                <section className="section-head">
-                  <div>
-                    <p className="eyebrow">Kết quả tìm kiếm</p>
-                    <h2>Chuyến bay phù hợp</h2>
-                  </div>
-                  <div className="sort-controls">
-                    <select
-                      value={search.sort}
-                      onChange={(event) =>
-                        setSearch({
-                          ...search,
-                          sort: event.target.value as FlightSearchParams['sort'],
-                        })
-                      }
-                    >
-                      <option value="departureTime">Giờ khởi hành</option>
-                      <option value="arrivalTime">Giờ đến</option>
-                      <option value="price">Giá vé</option>
-                    </select>
-                    <select
-                      value={search.order}
-                      onChange={(event) =>
-                        setSearch({
-                          ...search,
-                          order: event.target.value as FlightSearchParams['order'],
-                        })
-                      }
-                    >
-                      <option value="asc">Tăng dần</option>
-                      <option value="desc">Giảm dần</option>
-                    </select>
-                  </div>
-                </section>
-
-                <div className="flight-list">
-                  {flights.map((flight) => (
-                    <article className="flight-row" key={flight.id}>
-                      <div className="flight-route">
-                        <span>{flight.fromAirport}</span>
-                        <strong>{flight.flightNo}</strong>
-                        <span>{flight.toAirport}</span>
-                      </div>
-                      <div>
-                        <strong>{flight.airlineName}</strong>
-                        <p>
-                          {formatDateTime(flight.departureTime)} - {formatDateTime(flight.arrivalTime)}
-                        </p>
-                      </div>
-                      <div>
-                        <strong>{formatMoney(flight.currentPrice)}</strong>
-                        <p>
-                          {flight.availableSeats} ghế còn ·{' '}
-                          {durationLabel(flight.departureTime, flight.arrivalTime)}
-                        </p>
-                      </div>
-                      <Badge value={flight.status} />
-                      <button type="button" className="ghost-button" onClick={() => void loadFlight(flight.id)}>
-                        Chọn
-                      </button>
-                    </article>
-                  ))}
-                  {flights.length === 0 && (
-                    <div className="empty-state">
-                      <strong>Chưa có chuyến bay nào.</strong>
-                      <span>Chọn hành trình rồi bấm Tìm chuyến bay để xem giá và ghế.</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <aside className="booking-sidebar">
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Chọn ghế</p>
-                      <h3>{flightDetail ? flightDetail.flightNo : 'Chưa chọn chuyến'}</h3>
-                    </div>
-                    {flightDetail && <Badge value={flightDetail.status} />}
-                  </div>
-
-                  {flightDetail ? (
-                    <>
-                      <div className="stats-grid">
-                        <div>
-                          <span>Còn trống</span>
-                          <strong>{availableSeats || flightDetail.availableSeats}</strong>
-                        </div>
-                        <div>
-                          <span>Đang giữ</span>
-                          <strong>{flightDetail.heldSeats}</strong>
-                        </div>
-                        <div>
-                          <span>Đã đặt</span>
-                          <strong>{flightDetail.bookedSeats}</strong>
-                        </div>
-                      </div>
-
-                      {seatRows.length > 0 ? (
-                        <div className="seat-map" aria-label="Sơ đồ ghế">
-                          {seatRows.map((row) => (
-                            <div className="seat-row" key={row.row}>
-                              <span>{row.row}</span>
-                              {row.seats.map((seat) => (
-                                <button
-                                  type="button"
-                                  className={`seat ${seat.seatClass.toLowerCase()} ${seat.status.toLowerCase()} ${
-                                    selectedSeat === seat.seatNo ? 'selected' : ''
-                                  }`}
-                                  key={seat.seatNo}
-                                  disabled={seat.status !== 'AVAILABLE'}
-                                  onClick={() => {
-                                    setSelectedSeat(seat.seatNo)
-                                    setManualSeat(seat.seatNo)
-                                  }}
-                                  title={`${seat.seatNo} ${seat.seatClass} ${seat.status}`}
-                                >
-                                  {seat.seatNo}
-                                </button>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="empty-state compact">
-                          <strong>Chuyến này chưa có sơ đồ ghế.</strong>
-                          <span>Nhập ghế thủ công để giữ chỗ.</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="empty-state compact">
-                      <strong>Chọn một chuyến bay trước.</strong>
-                      <span>Sơ đồ ghế và giá cuối sẽ hiển thị tại đây.</span>
-                    </div>
-                  )}
-                </section>
-
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Thông tin khách</p>
-                      <h3>Giữ chỗ</h3>
-                    </div>
-                    {holdResult && <Badge value="HELD" />}
-                  </div>
-
-                  <div className="stack-form">
-                    <label>
-                      Ghế
-                      <input
-                        value={selectedSeat || manualSeat}
-                        onChange={(event) => {
-                          setSelectedSeat('')
-                          setManualSeat(event.target.value.toUpperCase())
-                        }}
-                        placeholder="1A"
-                      />
-                    </label>
-                    <label>
-                      Họ tên hành khách
-                      <input
-                        value={passengerName}
-                        onChange={(event) => setPassengerName(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Hộ chiếu/CCCD
-                      <input
-                        value={passengerPassport}
-                        onChange={(event) => setPassengerPassport(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Hành lý ký gửi (Miễn phí 7kg xách tay | Tối đa 20kg - 1.000đ/kg)
-                      <select
-                        value={extraBaggageKg}
-                        onChange={(event) => setExtraBaggageKg(Number(event.target.value))}
-                      >
-                        <option value={0}>Không mua thêm (0 kg - 0đ)</option>
-                        <option value={5}>5 kg (+5.000đ)</option>
-                        <option value={10}>10 kg (+10.000đ)</option>
-                        <option value={15}>15 kg (+15.000đ)</option>
-                        <option value={20}>20 kg (+20.000đ - Tối đa)</option>
-                      </select>
-                    </label>
-                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-4px' }}>
-                      💼 Phí hành lý ký gửi: <strong>{formatMoney(extraBaggageKg * 1000)}</strong>
-                    </div>
-                    <button type="button" className="primary-button" onClick={() => void holdSeat()}>
-                      {busy === 'hold' ? 'Đang giữ chỗ' : 'Giữ chỗ'}
-                    </button>
-                  </div>
-
-                  {holdResult && (
-                    <div className="result-box">
-                      <div>
-                        <span>Mã đặt chỗ</span>
-                        <strong>{holdResult.bookingCode}</strong>
-                      </div>
-                      {holdResult.baggageWeightKg !== undefined && holdResult.baggageWeightKg > 0 && (
-                        <div>
-                          <span>Hành lý ký gửi</span>
-                          <strong>{holdResult.baggageWeightKg} kg (+{formatMoney(holdResult.baggageFee ?? 0)})</strong>
-                        </div>
-                      )}
-                      <div>
-                        <span>Tổng thanh toán</span>
-                        <strong>{formatMoney(holdResult.price)}</strong>
-                      </div>
-                    </div>
-                  )}
-
-                </section>
-
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Thanh toán</p>
-                      <h3>QR chuyển khoản</h3>
-                    </div>
-                    {payment && <Badge value={payment.status} />}
-                  </div>
-
-                  <div className="button-row">
-                    <button type="button" className="primary-button" onClick={() => void createPayment()}>
-                      {busy === 'payment' ? 'Đang tạo' : 'Tạo QR'}
-                    </button>
-                    <button type="button" className="ghost-button" onClick={() => void refreshPayment()}>
-                      Cập nhật
-                    </button>
-                  </div>
-
-                  {payment ? (
-                    <div className="payment-box">
-                      {payment.qrUrl ? (
-                        <img src={payment.qrUrl} alt={`Payment QR ${payment.paymentCode}`} />
-                      ) : (
-                        <div className="qr-placeholder">QR</div>
-                      )}
-                      <div>
-                        <span>{payment.paymentCode}</span>
-                        <strong>{formatMoney(payment.amount)}</strong>
-                        <p>Nội dung: {payment.transferCode ?? 'N/A'}</p>
-                        <p>Hạn: {formatDateTime(payment.expiresAt)}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="empty-state compact">
-                      <strong>Chưa có thanh toán.</strong>
-                      <span>Giữ chỗ trước khi tạo mã QR.</span>
-                    </div>
-                  )}
-
-                  {bookingPayments.length > 0 && (
-                    <div className="mini-list payment-history">
-                      {bookingPayments.map((item) => (
-                        <div key={item.id}>
-                          <span>{item.paymentCode}</span>
-                          <Badge value={item.status} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </aside>
-            </section>
-
-            <section className="history-grid">
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">Chuyến đi của tôi</p>
-                    <h3>Lịch sử đặt chỗ</h3>
-                  </div>
-                  <div className="inline-controls">
-                    <select
-                      value={bookingStatus}
-                      onChange={(event) => setBookingStatus(event.target.value as BookingStatus | '')}
-                    >
-                      <option value="">Tất cả</option>
-                      <option value="HELD">Đang giữ</option>
-                      <option value="CONFIRMED">Đã xác nhận</option>
-                      <option value="CANCELLED">Đã hủy</option>
-                      <option value="EXPIRED">Hết hạn</option>
-                    </select>
-                    <button type="button" className="ghost-button" onClick={() => void loadBookings()}>
-                      Tải lịch sử
-                    </button>
-                  </div>
-                </div>
-
-                <div className="booking-list">
-                  {bookings.map((booking) => (
-                    <article className="booking-row" key={booking.id}>
-                      <div>
-                        <strong>{booking.bookingCode}</strong>
-                        <p>
-                          Chuyến {booking.flightId} · Ghế {booking.items.map((item) => item.seatNo).join(', ')}{' '}
-                          {booking.baggageWeightKg && booking.baggageWeightKg > 0 ? `· Ký gửi ${booking.baggageWeightKg}kg` : ''}
-                        </p>
-
-                      </div>
-                      <div>
-                        <strong>{formatMoney(booking.totalAmount)}</strong>
-                        <p>{formatDateTime(booking.createdAt)}</p>
-                      </div>
-                      <Badge value={booking.status} />
-                      {booking.status === 'HELD' && (
-                        <button
-                          type="button"
-                          className="danger-button"
-                          onClick={() => void cancelBooking(booking.id)}
-                        >
-                          Hủy
-                        </button>
-                      )}
-                    </article>
-                  ))}
-                  {bookings.length === 0 && (
-                    <div className="empty-state">
-                      <strong>Chưa có booking nào được tải.</strong>
-                      <span>Bấm Tải lịch sử hoặc giữ chỗ một chuyến bay.</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">Thông báo</p>
-                    <h3>Trạng thái gửi</h3>
-                  </div>
-                  <button type="button" className="ghost-button" onClick={() => void loadNotifications()}>
-                    Tải
-                  </button>
-                </div>
-
-                <div className="mini-list">
-                  {notifications.map((item) => (
-                    <div key={item.id}>
-                      <span>
-                        {item.templateCode} · {item.channel}
-                      </span>
-                      <Badge value={item.status} />
-                    </div>
-                  ))}
-                  {notifications.length === 0 && (
-                    <div className="empty-state compact">
-                      <strong>Chưa có thông báo.</strong>
-                      <span>Thông báo sẽ xuất hiện khi booking đổi trạng thái.</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          </section>
+      {/* Main Screen Views */}
+      <main id="main-content" tabIndex={-1}>
+        {/* TAB 1: HOMEPAGE (Trang chủ sạch đẹp với Hero Slogan & Promos) */}
+        {activeTab === 'home' && (
+          <>
+            <HeroSearch onGoToSearch={() => setActiveTab('search')} />
+            <PopularDestinations
+              onSelectRoute={handleSelectPromoRoute}
+              formatMoney={formatMoney}
+            />
           </>
         )}
 
-        {page === 'admin' && (
-          <section className="admin-page">
-            <div className="admin-hero">
-              <div>
-                <p className="eyebrow">AeroSky Admin</p>
-                <h1>Quản trị lịch bay và tồn ghế</h1>
-                <p>Khởi tạo chuyến bay mới, theo dõi catalog sân bay, hãng bay và tuyến bay.</p>
-              </div>
-              <button type="button" className="primary-button" onClick={() => void refreshCatalog()}>
-                Làm mới catalog
-              </button>
-            </div>
+        {/* TAB 2: FLIGHT SEARCH PAGE (Trang Tìm kiếm chuyến bay riêng biệt với cụm Search Card chuẩn ở trên & 2 cột kết quả bên dưới) */}
+        {activeTab === 'search' && (
+          <>
+            {step === 'list' && (
+              <FlightSearchPage
+                search={search}
+                setSearch={setSearch}
+                airports={airports}
+                airlines={airlines}
+                flights={flights}
+                onSearch={handleSearch}
+                onReset={handleResetSearch}
+                onSelectFlight={handleSelectFlight}
+                isLoading={isSearching}
+                error={searchError}
+                tripType={tripType}
+                setTripType={setTripType}
+                formatMoney={formatMoney}
+                formatDateTime={formatDateTime}
+                durationLabel={durationLabel}
+                canBook={!isAdmin}
+              />
+            )}
 
-            <div className="admin-stats">
-              <div>
-                <span>Sân bay</span>
-                <strong>{airports.length}</strong>
-              </div>
-              <div>
-                <span>Hãng bay</span>
-                <strong>{airlines.length}</strong>
-              </div>
-              <div>
-                <span>Tuyến bay</span>
-                <strong>{routes.length}</strong>
-              </div>
-            </div>
-
-            <section className="panel">
-              <div className="panel-heading">
-                <div>
-                  <p className="eyebrow">Tạo chuyến bay</p>
-                  <h3>Thông tin khai thác</h3>
+            {step === 'seat' && selectedFlight && (
+              <div className="booking-workflow booking-workflow-seat max-w-6xl mx-auto px-4 pt-24">
+                <div className="workflow-breadcrumb flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
+                  <button
+                    onClick={() => setActiveTab('home')}
+                    className="hover:text-slate-900 flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-base">home</span> Trang chủ
+                  </button>
+                  <span>/</span>
+                  <button onClick={() => setStep('list')} className="hover:text-slate-900">
+                    Tìm chuyến bay
+                  </button>
+                  <span>/</span>
+                  <span className="text-sky-600 font-extrabold">Chọn chỗ ngồi</span>
                 </div>
-              </div>
 
-              <form className="admin-grid" onSubmit={(event) => void createFlight(event)}>
-                <label>
-                  Số hiệu
-                  <input
-                    value={flightForm.flightNo}
-                    onChange={(event) => setFlightForm({ ...flightForm, flightNo: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Hãng bay
-                  <select
-                    value={flightForm.airlineCode}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, airlineCode: event.target.value })
-                    }
+                <SeatPicker
+                  flight={selectedFlight}
+                  seats={seats}
+                  selectedSeat={selectedSeat}
+                  setSelectedSeat={setSelectedSeat}
+                  manualSeat={manualSeat}
+                  setManualSeat={setManualSeat}
+                  onProceedToPassenger={() => setStep('passenger-payment')}
+                  onBackToResults={() => setStep('list')}
+                  formatMoney={formatMoney}
+                />
+              </div>
+            )}
+
+            {step === 'passenger-payment' && selectedFlight && (
+              <div className="booking-workflow booking-workflow-payment max-w-6xl mx-auto px-4 pt-24">
+                <div className="workflow-breadcrumb flex items-center gap-2 text-xs font-bold text-slate-500 py-3 border-b border-slate-200/80 mb-6">
+                  <button
+                    onClick={() => setActiveTab('home')}
+                    className="hover:text-slate-900 flex items-center gap-1"
                   >
-                    {airlines.map((airline) => (
-                      <option key={airline.code} value={airline.code}>
-                        {airline.code} - {airline.name}
-                      </option>
-                    ))}
-                    {airlines.length === 0 && <option value="VN">VN</option>}
-                  </select>
-                </label>
-                <label>
-                  Từ
-                  <select
-                    value={flightForm.fromAirportCode}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, fromAirportCode: event.target.value })
-                    }
-                  >
-                    {airports.map((airport) => (
-                      <option key={airport.iataCode} value={airport.iataCode}>
-                        {airport.iataCode}
-                      </option>
-                    ))}
-                    {airports.length === 0 && <option value="HAN">HAN</option>}
-                  </select>
-                </label>
-                <label>
-                  Đến
-                  <select
-                    value={flightForm.toAirportCode}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, toAirportCode: event.target.value })
-                    }
-                  >
-                    {airports.map((airport) => (
-                      <option key={airport.iataCode} value={airport.iataCode}>
-                        {airport.iataCode}
-                      </option>
-                    ))}
-                    {airports.length === 0 && <option value="SGN">SGN</option>}
-                  </select>
-                </label>
-                <label>
-                  Giờ đi
-                  <input
-                    type="datetime-local"
-                    value={flightForm.departureTime}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, departureTime: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Giờ đến
-                  <input
-                    type="datetime-local"
-                    value={flightForm.arrivalTime}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, arrivalTime: event.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  Số ghế
-                  <input
-                    min="6"
-                    step="6"
-                    type="number"
-                    value={flightForm.totalSeats}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, totalSeats: Number(event.target.value || 60) })
-                    }
-                  />
-                </label>
-                <label>
-                  Giá cơ bản
-                  <input
-                    min="1000"
-                    type="number"
-                    value={flightForm.basePrice}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, basePrice: Number(event.target.value || 0) })
-                    }
-                  />
-                </label>
-                <label>
-                  Tàu bay
-                  <input
-                    value={flightForm.aircraftType}
-                    onChange={(event) =>
-                      setFlightForm({ ...flightForm, aircraftType: event.target.value })
-                    }
-                  />
-                </label>
-                <button type="submit" className="primary-button">
-                  {busy === 'admin' ? 'Đang tạo' : 'Tạo chuyến bay'}
-                </button>
-              </form>
-            </section>
-          </section>
+                    <span className="material-symbols-outlined text-base">home</span> Trang chủ
+                  </button>
+                  <span>/</span>
+                  <button onClick={() => setStep('list')} className="hover:text-slate-900">
+                    Tìm chuyến bay
+                  </button>
+                  <span>/</span>
+                  <button onClick={() => setStep('seat')} className="hover:text-slate-900">
+                    Chọn chỗ ngồi
+                  </button>
+                  <span>/</span>
+                  <span className="text-sky-600 font-extrabold">Thanh toán</span>
+                </div>
+
+                <PassengerPayment
+                  flight={selectedFlight}
+                  selectedSeat={selectedSeat}
+                  passengerName={passengerName}
+                  setPassengerName={setPassengerName}
+                  passengerPassport={passengerPassport}
+                  setPassengerPassport={setPassengerPassport}
+                  extraBaggageKg={extraBaggageKg}
+                  setExtraBaggageKg={setExtraBaggageKg}
+                  onHoldSeat={handleHoldSeat}
+                  isHolding={isHolding}
+                  holdResult={holdResult}
+                  payment={payment}
+                  onCreatePayment={handleCreatePayment}
+                  onCheckPaymentStatus={handleCheckPaymentStatus}
+                  isCreatingPayment={isCreatingPayment}
+                  onViewETicket={() => setActiveTab('bookings')}
+                  formatMoney={formatMoney}
+                  user={auth}
+                  onLogin={keycloakLogin}
+                />
+              </div>
+            )}
+          </>
         )}
-    </main>
+
+        {/* TAB 3: MY BOOKINGS */}
+        {activeTab === 'bookings' && !isAdmin && (
+          <div className="route-shell route-bookings pt-8">
+            <MyBookingsETicket
+              bookings={userBookings}
+              onCancelBooking={handleCancelBooking}
+              onRefreshBookings={loadUserBookings}
+              formatMoney={formatMoney}
+              formatDateTime={formatDateTime}
+            />
+          </div>
+        )}
+
+        {activeTab === 'profile' && auth && (
+          isProfileLoading ? (
+            <section className="mx-auto max-w-6xl px-6 py-16" aria-live="polite">
+              <div className="h-8 w-56 animate-pulse rounded-lg bg-slate-200" />
+              <div className="mt-8 h-80 animate-pulse rounded-3xl bg-slate-100" />
+            </section>
+          ) : userProfile ? (
+            <UserProfilePage
+              profile={userProfile}
+              onBack={() => setActiveTab('home')}
+              onUpdateProfile={handleUpdateProfile}
+              onSubmitPassport={handleSubmitPassport}
+              onEarnMiles={handleEarnMiles}
+              onRedeemMiles={handleRedeemMiles}
+              isUpdating={isProfileUpdating}
+            />
+          ) : (
+            <section className="mx-auto max-w-xl px-6 py-20 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-400">person_off</span>
+              <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Không tải được hồ sơ</h1>
+              <p className="mt-2 text-sm text-slate-500">Kiểm tra tài khoản người dùng rồi thử lại.</p>
+              <button type="button" className="primary-button mt-6" onClick={loadUserProfile}>Thử lại</button>
+            </section>
+          )
+        )}
+
+        {/* TAB 4: ADMIN DASHBOARD */}
+        {activeTab === 'admin' && isAdmin && (
+          <div className="route-shell route-admin pt-8">
+            <AdminDashboard
+              flights={adminFlights}
+              airports={airports}
+              airlines={airlines}
+              routes={routes}
+              bookings={adminBookings}
+              onCreateFlight={handleCreateFlight}
+              onDeleteFlight={handleDeleteFlight}
+              onUpdateStatus={handleUpdateFlightStatus}
+              onCreateAirport={handleCreateAirport}
+              onCreateAirline={handleCreateAirline}
+              onCreateRoute={handleCreateRoute}
+              formatMoney={formatMoney}
+              formatDateTime={formatDateTime}
+            />
+          </div>
+        )}
+      </main>
+
+      {/* Notifications Drawer */}
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
+        notifications={notifications}
+        unreadCount={unreadNotificationsCount}
+        onRefresh={loadNotifications}
+        onMarkRead={handleMarkNotificationRead}
+        onMarkAllRead={handleMarkAllNotificationsRead}
+        formatDateTime={formatDateTime}
+      />
+    </div>
   )
 }
 

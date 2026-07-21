@@ -10,6 +10,8 @@ import com.abs.flightsearch.domain.repository.FlightSeatRepository;
 import com.abs.flightsearch.domain.repository.SeatInventoryRepository;
 import com.abs.flightsearch.domain.vo.FlightSeatId;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,10 @@ public class ReleaseSeatUseCase {
     private final SeatInventoryRepository seatInventoryRepository;
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = {"flightSearch", "upcomingFlights", "adminFlights"}, allEntries = true),
+            @CacheEvict(cacheNames = "flightDetail", key = "#flightId")
+    })
     public SeatInfoResponse execute(Long flightId, String seatNo) {
         FlightAggregate flight = flightRepository.findById(flightId)
                 .orElseThrow(() -> new FlightNotFoundException(flightId));

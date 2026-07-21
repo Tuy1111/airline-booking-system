@@ -1,36 +1,42 @@
 # Local dev stack for airline-booking-system
 # Run: docker compose -f infra/docker/docker-compose.yml up -d
 #
+# Credentials đọc từ infra/docker/.env (compose lấy .env cạnh file compose này,
+# KHÔNG phải .env ở root). Copy từ infra/docker/.env.example rồi điền.
+#
 # Hosts/ports (from your machine):
-#   Postgres ............ localhost:5432  (user/pw: abs/abs123)
-#   RabbitMQ ............ localhost:5672  (mgmt UI: localhost:15672, guest/guest)
+#   Postgres ............ localhost:5432  (user/pw: xem DB_USER/DB_PASS)
+#   RabbitMQ ............ localhost:5672  (mgmt UI: localhost:15672, xem RABBIT_USER/RABBIT_PASS)
 #   Kafka ............... localhost:9092
 #   Redis ............... localhost:6379
 #   MailHog SMTP/UI ..... localhost:1025  / localhost:8025
 #   Zipkin .............. localhost:9411
 #   Prometheus .......... localhost:9090
-#   Grafana ............. localhost:3000  (admin/admin)
+#   Grafana ............. localhost:3000  (xem GRAFANA_USER/GRAFANA_PASS)
 services:
 
   postgres:
     image: postgres:16
     container_name: abs-postgres
     environment:
-      POSTGRES_USER: ${DB_USER:-abs}
-      POSTGRES_PASSWORD: ${DB_PASS:-abs123}
+      POSTGRES_USER: ${DB_USER:?DB_USER chua set trong infra/docker/.env}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS chua set trong infra/docker/.env}
       POSTGRES_DB: postgres
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-abs}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?DB_USER chua set trong infra/docker/.env}"]
       interval: 5s
       retries: 10
 
   rabbitmq:
     image: rabbitmq:3.13-management
     container_name: abs-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USER:?RABBIT_USER chua set trong infra/docker/.env}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASS:?RABBIT_PASS chua set trong infra/docker/.env}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -94,8 +100,8 @@ services:
     container_name: abs-grafana
     ports: ["3000:3000"]
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:?GRAFANA_USER chua set trong infra/docker/.env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS:?GRAFANA_PASS chua set trong infra/docker/.env}
       GF_AUTH_ANONYMOUS_ENABLED: "true"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

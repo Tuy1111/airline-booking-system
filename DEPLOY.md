@@ -18,13 +18,26 @@ git clone <repo-url> airline-booking-system
 cd airline-booking-system
 
 cp .env.example .env
-nano .env          # điền JWT_SECRET và SEPAY_* (bắt buộc cho payment)
+nano .env          # điền cấu hình Keycloak và SEPAY_* (bắt buộc cho payment)
 ```
 
 ## 3. Build & chạy tất cả
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Keycloak chỉ tự import `infra/keycloak/abs-realm.json` khi realm `airline-booking` chưa tồn tại.
+Nếu VPS đã có realm cũ, hãy cập nhật/import client public `airline-frontend` trong Keycloak Admin
+Console. Không xóa volume PostgreSQL chỉ để import lại realm vì thao tác đó cũng xóa dữ liệu ứng dụng.
+
+Realm đã tồn tại cũng cần bật theme mới một lần sau khi container khởi động:
+
+```bash
+docker exec abs-keycloak sh -c '
+  /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8180 --realm master --user "$KEYCLOAK_ADMIN" --password "$KEYCLOAK_ADMIN_PASSWORD" &&
+  /opt/keycloak/bin/kcadm.sh update realms/airline-booking -s loginTheme=skyswift
+'
 ```
 
 Lần đầu build backend images và frontend image nên hơi lâu; các lần sau nhanh hơn nhờ cache Docker.
@@ -43,17 +56,18 @@ docker compose -f docker-compose.prod.yml logs -f booking-service
 | **Frontend**       | `80`               | Web đặt vé, proxy API nội bộ qua Nginx   |
 | **API Gateway**    | `8080`             | **Điểm vào chính** (route lb qua Eureka) |
 | Eureka dashboard   | `8761`             | xem service đã đăng ký                   |
-| flight / booking   | `8081` / `8082`    | gọi trực tiếp khi debug                   |
-| user / payment     | `8083` / `8084`    |                                          |
-| notification       | `8085`             |                                          |
+| flight / booking   | nội bộ Docker      | chỉ truy cập qua API Gateway              |
+| user / payment     | nội bộ Docker      | chỉ truy cập qua API Gateway              |
+| notification       | nội bộ Docker      | chỉ truy cập qua API Gateway              |
 | Postgres           | `5555`             | host 5555 -> container 5432; 5 DB tạo tự động |
 | Redis              | nội bộ Docker      | không publish ra host/VPS               |
 | Kafka              | `9092`             | chỉ mở nếu cần debug hoặc client ngoài   |
-| RabbitMQ UI        | `15672`            | guest/guest                              |
+| RabbitMQ AMQP/UI   | nội bộ Docker      | Không public; dùng `RABBIT_USER`/`RABBIT_PASS` |
 | MailHog UI         | `8025`             | xem email đã gửi                         |
 
-> Khi chạy thật chỉ nên mở public cổng `80` cho frontend. Nếu cần debug API trực tiếp
-> mới mở thêm `8080`; các cổng service còn lại nên để nội bộ hoặc bỏ khỏi phần `ports:`.
+> Khi chạy thật chỉ nên mở public cổng `80` cho frontend. Nếu cần debug Gateway trực tiếp
+> mới mở thêm `8080`; các service `8081`–`8085`, RabbitMQ AMQP (`5672`) và Management UI
+> (`15672`) chỉ được expose trong mạng Docker.
 
 ## 5. Monitoring (tùy chọn)
 

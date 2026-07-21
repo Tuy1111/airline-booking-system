@@ -26,6 +26,7 @@ public class Notification {
     private String dedupKey;
     private LocalDateTime createdAt;
     private LocalDateTime sentAt;
+    private LocalDateTime readAt;
 
     public static Notification queue(String templateCode, Long userId, Recipient recipient, java.util.Map<String,Object> variables) {
         return Notification.builder()
@@ -43,5 +44,11 @@ public class Notification {
     public void markFailed(String errorMessage) {
         status = NotificationStatus.FAILED;
         this.errorMessage = errorMessage;
+    }
+
+    public void markRead(LocalDateTime readAt) {
+        if (this.readAt == null) {
+            this.readAt = readAt;
+        }
     }
 }

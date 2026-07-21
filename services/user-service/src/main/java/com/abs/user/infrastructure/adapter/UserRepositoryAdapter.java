@@ -5,7 +5,9 @@ import com.abs.user.domain.repository.UserRepository;
 import com.abs.user.domain.vo.EmailAddress;
 import com.abs.user.domain.vo.UserId;
 import com.abs.user.infrastructure.persistence.UserJpaRepository;
+import com.abs.user.infrastructure.persistence.entity.UserEntity;
 import com.abs.user.infrastructure.persistence.mapper.UserPersistenceMapper;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,11 +25,16 @@ import java.util.Optional;
 public class UserRepositoryAdapter implements UserRepository {
 
     private final UserJpaRepository repository;
+    private final EntityManager entityManager;
 
     @Override
     public UserAggregate save(UserAggregate user) {
-        return UserPersistenceMapper.toAggregate(
-                repository.save(UserPersistenceMapper.toEntity(user)));
+        UserEntity entity = UserPersistenceMapper.toEntity(user);
+        if (entity.getId() != null && !repository.existsById(entity.getId())) {
+            entityManager.persist(entity);
+            return UserPersistenceMapper.toAggregate(entity);
+        }
+        return UserPersistenceMapper.toAggregate(repository.save(entity));
     }
 
     @Override

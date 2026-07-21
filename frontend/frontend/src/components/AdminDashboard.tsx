@@ -467,6 +467,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <th className="py-3 px-3">Flight ID</th>
                   <th className="py-3 px-3">Hành khách</th>
                   <th className="py-3 px-3">Ghế</th>
+                  <th className="py-3 px-3">Hành lý</th>
                   <th className="py-3 px-3">Tổng tiền</th>
                   <th className="py-3 px-3">Trạng thái</th>
                 </tr>
@@ -479,6 +480,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <td className="py-3 px-3 font-bold">{b.flightId}</td>
                     <td className="py-3 px-3">{b.items?.[0]?.passengerName || 'N/A'}</td>
                     <td className="py-3 px-3 font-bold text-sky-600">{b.items?.[0]?.seatNo || 'N/A'}</td>
+                    <td className="py-3 px-3 font-semibold text-slate-700">{b.baggageWeightKg ? `${b.baggageWeightKg} kg` : '0 kg'}</td>
                     <td className="py-3 px-3 text-orange-600 font-bold">{formatMoney(b.totalAmount)}</td>
                     <td className="py-3 px-3">
                       <span className={`badge status-${b.status.toLowerCase()}`}>{b.status}</span>

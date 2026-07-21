@@ -124,6 +124,12 @@ export const MyBookingsETicket: React.FC<MyBookingsETicketProps> = ({
                     <span className="text-sky-600 font-bold">{b.items[0].seatNo}</span>)
                   </div>
                 )}
+                {b.baggageWeightKg !== undefined && b.baggageWeightKg > 0 && (
+                  <div>
+                    <span className="text-slate-400">Hành lý ký gửi:</span>{' '}
+                    <strong className="text-slate-800">{b.baggageWeightKg} kg</strong> (+{formatMoney(b.baggageFee ?? 0)})
+                  </div>
+                )}
                 <div>
                   <span className="text-slate-400">Ngày đặt:</span> {formatDateTime(b.createdAt)}
                 </div>
@@ -225,13 +231,22 @@ export const MyBookingsETicket: React.FC<MyBookingsETicketProps> = ({
                 </div>
 
                 <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Hành lý ký gửi</span>
+                  <strong className="text-slate-900 text-sm">
+                    {selectedETicket.baggageWeightKg && selectedETicket.baggageWeightKg > 0
+                      ? `${selectedETicket.baggageWeightKg} kg (+${formatMoney(selectedETicket.baggageFee ?? 0)})`
+                      : '7 kg xách tay'}
+                  </strong>
+                </div>
+
+                <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Flight ID</span>
                   <strong className="text-slate-800">{selectedETicket.flightId}</strong>
                 </div>
 
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Giá thanh toán</span>
-                  <strong className="text-orange-600">{formatMoney(selectedETicket.totalAmount)}</strong>
+                <div className="col-span-2 pt-2 border-t border-slate-100 flex justify-between items-center">
+                  <span className="text-slate-400 text-[10px] uppercase font-bold">Giá thanh toán tổng cộng</span>
+                  <strong className="text-orange-600 text-base font-black">{formatMoney(selectedETicket.totalAmount)}</strong>
                 </div>
               </div>
 

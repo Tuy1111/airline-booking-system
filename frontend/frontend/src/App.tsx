@@ -817,7 +817,6 @@ export function App() {
                   onCreatePayment={handleCreatePayment}
                   onCheckPaymentStatus={handleCheckPaymentStatus}
                   isCreatingPayment={isCreatingPayment}
-                  onViewETicket={() => setActiveTab('bookings')}
                   formatMoney={formatMoney}
                   user={auth}
                   onLogin={keycloakLogin}

@@ -20,7 +20,6 @@ interface PassengerPaymentProps {
   onCreatePayment: () => void
   onCheckPaymentStatus: () => void
   isCreatingPayment: boolean
-  onViewETicket: () => void
   formatMoney: (val: number | string | null | undefined) => string
   user: AuthenticatedUser | null
   onLogin: () => void
@@ -42,7 +41,6 @@ export const PassengerPayment: React.FC<PassengerPaymentProps> = ({
   onCreatePayment,
   onCheckPaymentStatus,
   isCreatingPayment,
-  onViewETicket,
   formatMoney,
   user,
   onLogin,
@@ -298,13 +296,12 @@ export const PassengerPayment: React.FC<PassengerPaymentProps> = ({
                       Kiểm tra trạng thái thanh toán
                     </button>
 
-                    <button
-                      onClick={onViewETicket}
-                      className="px-5 py-2.5 bg-slate-900 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md ml-auto"
-                    >
-                      <span className="material-symbols-outlined text-base">confirmation_number</span>
-                      Xem vé điện tử (E-Ticket)
-                    </button>
+                    {payment.status === 'SUCCESS' && (
+                      <span className="ml-auto inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-5 py-2.5 text-xs font-bold text-emerald-700" aria-live="polite">
+                        <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
+                        Đang phát hành vé điện tử...
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

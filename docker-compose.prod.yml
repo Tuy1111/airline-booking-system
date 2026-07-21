@@ -347,7 +347,9 @@ services:
       KAFKA_BOOTSTRAP: kafka:29092
       # Dung "?" (khong phai ":?"): bao loi khi THIEU key, nhung cho phep de RONG.
       # Dev khong co tai khoan SePay -> de rong, app van boot (chi SePay khong xai duoc).
-      SEPAY_API_KEY: ${SEPAY_API_KEY?SEPAY_API_KEY chua co trong .env}
+      SEPAY_API_KEY: ${SEPAY_API_KEY:-}
+      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET?SEPAY_WEBHOOK_SECRET chua co trong .env}
+      SEPAY_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS: ${SEPAY_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS:-300}
       SEPAY_BANK_ACC: ${SEPAY_BANK_ACC?SEPAY_BANK_ACC chua co trong .env}
       SEPAY_BANK_CODE: ${SEPAY_BANK_CODE?SEPAY_BANK_CODE chua co trong .env}
       SEPAY_ACC_HOLDER: ${SEPAY_ACC_HOLDER?SEPAY_ACC_HOLDER chua co trong .env}

@@ -34,13 +34,16 @@ spring:
 
 app:
   sepay:
-    api-key: ${SEPAY_API_KEY}
+    api-key: ${SEPAY_API_KEY:}
     bank-account: ${SEPAY_BANK_ACC}
     bank-code: ${SEPAY_BANK_CODE}
     account-holder: ${SEPAY_ACC_HOLDER}
     qr-base: ${SEPAY_QR_BASE}
     qr-template: ${SEPAY_QR_TEMPLATE}
     expires-minutes: ${SEPAY_EXPIRES_MIN}
+    # HMAC-SHA256 webhook secret. Leave empty only for legacy API-key mode.
+    webhook-secret: ${SEPAY_WEBHOOK_SECRET:}
+    webhook-timestamp-tolerance-seconds: ${SEPAY_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS:300}
   kafka:
     topics:
       payment-completed: payment.completed

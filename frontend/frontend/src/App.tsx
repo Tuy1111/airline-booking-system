@@ -217,6 +217,30 @@ export function App() {
     return () => window.clearInterval(intervalId)
   }, [auth])
 
+  // Poll an active SePay payment until the backend reaches a terminal state.
+  // The webhook updates the backend asynchronously, so the payment screen
+  // must not rely on the user clicking the manual status-check button.
+  useEffect(() => {
+    if (!payment || payment.status !== 'PENDING') return
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const latest = await paymentApi.getPayment(payment.id)
+        setPayment(latest)
+        if (latest.status === 'SUCCESS') {
+          addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
+          loadUserBookings()
+        } else if (latest.status === 'FAILED') {
+          addToast('error', 'Thanh toán thất bại hoặc đã hết hạn giữ ghế.')
+        }
+      } catch (err) {
+        console.warn('Could not poll payment status:', err)
+      }
+    }, 3000)
+
+    return () => window.clearInterval(intervalId)
+  }, [payment?.id, payment?.status])
+
   useEffect(() => {
     if (isAdmin && activeTab === 'admin') loadAdminData()
   }, [activeTab, isAdmin])

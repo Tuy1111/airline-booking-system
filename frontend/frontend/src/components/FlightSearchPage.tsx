@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import type { Airline, Airport, FlightSearchParams, FlightSummary } from '../features/flights/types'
 import { SearchWidget } from './SearchWidget'
 
@@ -38,6 +38,8 @@ const day = (value: string) => new Date(value).toLocaleDateString('vi-VN', {
   month: '2-digit',
 })
 
+const PAGE_SIZE = 5
+
 export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
   search,
   setSearch,
@@ -55,23 +57,35 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
   durationLabel,
 }) => {
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const hasFilters = Boolean(
     search.from || search.to || search.date || search.dateTo || search.status || search.airline || search.minPrice || search.maxPrice,
   )
+  const airportOptions = useMemo(() => {
+    const options = new Map(airports.map((airport) => [airport.iataCode, airport]))
+    flights.forEach((flight) => {
+      if (!options.has(flight.fromAirport)) {
+        options.set(flight.fromAirport, { iataCode: flight.fromAirport, city: flight.fromCity, name: flight.fromCity, country: 'VN' })
+      }
+      if (!options.has(flight.toAirport)) {
+        options.set(flight.toAirport, { iataCode: flight.toAirport, city: flight.toCity, name: flight.toCity, country: 'VN' })
+      }
+    })
+    return [...options.values()].sort((a, b) => a.city.localeCompare(b.city, 'vi'))
+  }, [airports, flights])
+  const airlineOptions = useMemo(() => {
+    const options = new Map(airlines.map((airline) => [airline.code, airline]))
+    flights.forEach((flight) => options.set(flight.airlineCode, { code: flight.airlineCode, name: flight.airlineName }))
+    return [...options.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+  }, [airlines, flights])
+  const totalPages = Math.max(1, Math.ceil(flights.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const visibleFlights = flights.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  useEffect(() => setPage(1), [flights])
 
   return (
     <div className="flight-search-page search-redesign">
-      <header className="search-route-header">
-        <div>
-          <p className="eyebrow">Tìm vé máy bay</p>
-          <h1>{hasFilters ? 'Chuyến bay theo hành trình của bạn.' : 'Tất cả chuyến bay hiện có.'}</h1>
-        </div>
-        <p>
-          So sánh lịch bay, thời lượng, chỗ còn lại và giá vé trong cùng một màn hình.
-          Bộ lọc chỉ thu hẹp danh sách khi bạn cần.
-        </p>
-      </header>
-
       <div className="flight-results-layout">
         <aside className={`flight-search-sidebar ${filtersOpen ? 'mobile-open' : ''}`} aria-label="Bộ lọc chuyến bay">
           <button
@@ -86,8 +100,8 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
           <SearchWidget
             search={search}
             setSearch={setSearch}
-            airports={airports}
-            airlines={airlines}
+            airports={airportOptions}
+            airlines={airlineOptions}
             onSearch={(event) => {
               onSearch(event)
               setFiltersOpen(false)
@@ -141,7 +155,7 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
 
           {!isLoading && !error && flights.length > 0 && (
             <div className="flight-card-list">
-              {flights.map((flight, index) => (
+              {visibleFlights.map((flight, index) => (
                 <article
                   className="flight-result-card"
                   key={flight.id}
@@ -190,6 +204,20 @@ export const FlightSearchPage: React.FC<FlightSearchPageProps> = ({
                 </article>
               ))}
             </div>
+          )}
+
+          {!isLoading && !error && totalPages > 1 && (
+            <nav className="flight-pagination" aria-label="Phân trang chuyến bay">
+              <button type="button" onClick={() => setPage((current) => current - 1)} disabled={currentPage === 1}>
+                <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+                Trang trước
+              </button>
+              <span>Trang <strong>{currentPage}</strong> / {totalPages}</span>
+              <button type="button" onClick={() => setPage((current) => current + 1)} disabled={currentPage === totalPages}>
+                Trang sau
+                <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+              </button>
+            </nav>
           )}
         </section>
       </div>

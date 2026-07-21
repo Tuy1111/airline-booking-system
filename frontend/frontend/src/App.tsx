@@ -153,12 +153,12 @@ export function App() {
   useEffect(() => {
     flightApi
       .getAirports()
-      .then(setAirports)
+      .then((items) => items.length && setAirports(items))
       .catch((err) => console.warn('Airports API error:', err))
 
     flightApi
       .getAirlines()
-      .then(setAirlines)
+      .then((items) => items.length && setAirlines(items))
       .catch((err) => console.warn('Airlines API error:', err))
 
     flightApi
@@ -169,7 +169,22 @@ export function App() {
     setIsSearching(true)
     flightApi
       .searchFlights(emptySearch)
-      .then(setFlights)
+      .then((items) => {
+        setFlights(items)
+        setAirports((current) => {
+          const options = new Map(current.map((airport) => [airport.iataCode, airport]))
+          items.forEach((flight) => {
+            options.set(flight.fromAirport, options.get(flight.fromAirport) ?? { iataCode: flight.fromAirport, city: flight.fromCity, name: flight.fromCity, country: 'VN' })
+            options.set(flight.toAirport, options.get(flight.toAirport) ?? { iataCode: flight.toAirport, city: flight.toCity, name: flight.toCity, country: 'VN' })
+          })
+          return [...options.values()]
+        })
+        setAirlines((current) => {
+          const options = new Map(current.map((airline) => [airline.code, airline]))
+          items.forEach((flight) => options.set(flight.airlineCode, { code: flight.airlineCode, name: flight.airlineName }))
+          return [...options.values()]
+        })
+      })
       .catch((err) => setSearchError(getErrorMessage(err)))
       .finally(() => setIsSearching(false))
   }, [])

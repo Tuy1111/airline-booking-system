@@ -209,7 +209,9 @@ function App() {
 
   const [passengerName, setPassengerName] = useState('Demo Passenger')
   const [passengerPassport, setPassengerPassport] = useState('P1234567')
+  const [extraBaggageKg, setExtraBaggageKg] = useState<number>(0)
   const [holdResult, setHoldResult] = useState<HoldSeatResponse | null>(null)
+
   const [activeBooking, setActiveBooking] = useState<BookingDetail | null>(null)
   const [bookingStatus, setBookingStatus] = useState<BookingStatus | ''>('')
   const [bookings, setBookings] = useState<BookingDetail[]>([])
@@ -347,7 +349,9 @@ function App() {
         seatNo,
         passengerName: passengerName.trim(),
         passengerPassport: passengerPassport.trim() || undefined,
+        extraBaggageKg,
       })
+
       const booking = await bookingApi.getBooking(held.bookingId)
 
       setHoldResult(held)
@@ -874,6 +878,22 @@ function App() {
                         onChange={(event) => setPassengerPassport(event.target.value)}
                       />
                     </label>
+                    <label>
+                      Hành lý ký gửi (Miễn phí 7kg xách tay | Tối đa 20kg - 1.000đ/kg)
+                      <select
+                        value={extraBaggageKg}
+                        onChange={(event) => setExtraBaggageKg(Number(event.target.value))}
+                      >
+                        <option value={0}>Không mua thêm (0 kg - 0đ)</option>
+                        <option value={5}>5 kg (+5.000đ)</option>
+                        <option value={10}>10 kg (+10.000đ)</option>
+                        <option value={15}>15 kg (+15.000đ)</option>
+                        <option value={20}>20 kg (+20.000đ - Tối đa)</option>
+                      </select>
+                    </label>
+                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '-4px' }}>
+                      💼 Phí hành lý ký gửi: <strong>{formatMoney(extraBaggageKg * 1000)}</strong>
+                    </div>
                     <button type="button" className="primary-button" onClick={() => void holdSeat()}>
                       {busy === 'hold' ? 'Đang giữ chỗ' : 'Giữ chỗ'}
                     </button>
@@ -885,12 +905,19 @@ function App() {
                         <span>Mã đặt chỗ</span>
                         <strong>{holdResult.bookingCode}</strong>
                       </div>
+                      {holdResult.baggageWeightKg !== undefined && holdResult.baggageWeightKg > 0 && (
+                        <div>
+                          <span>Hành lý ký gửi</span>
+                          <strong>{holdResult.baggageWeightKg} kg (+{formatMoney(holdResult.baggageFee ?? 0)})</strong>
+                        </div>
+                      )}
                       <div>
-                        <span>Giá vé</span>
+                        <span>Tổng thanh toán</span>
                         <strong>{formatMoney(holdResult.price)}</strong>
                       </div>
                     </div>
                   )}
+
                 </section>
 
                 <section className="panel">
@@ -976,8 +1003,10 @@ function App() {
                       <div>
                         <strong>{booking.bookingCode}</strong>
                         <p>
-                          Chuyến {booking.flightId} · {booking.items.map((item) => item.seatNo).join(', ')}
+                          Chuyến {booking.flightId} · Ghế {booking.items.map((item) => item.seatNo).join(', ')}{' '}
+                          {booking.baggageWeightKg && booking.baggageWeightKg > 0 ? `· Ký gửi ${booking.baggageWeightKg}kg` : ''}
                         </p>
+
                       </div>
                       <div>
                         <strong>{formatMoney(booking.totalAmount)}</strong>

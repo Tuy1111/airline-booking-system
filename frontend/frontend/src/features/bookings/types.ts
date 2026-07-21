@@ -5,6 +5,7 @@ export interface HoldSeatRequest {
   seatNo: string
   passengerName: string
   passengerPassport?: string
+  extraBaggageKg?: number
 }
 
 export interface HoldSeatResponse {
@@ -13,6 +14,8 @@ export interface HoldSeatResponse {
   flightId: number
   seatNo: string
   price: number
+  baggageWeightKg?: number
+  baggageFee?: number
   currency: string
   holdExpiresAt: string
   message: string
@@ -33,6 +36,8 @@ export interface BookingDetail {
   flightId: number
   status: BookingStatus
   totalAmount: number
+  baggageWeightKg?: number
+  baggageFee?: number
   currency: string
   heldAt: string | null
   expiresAt: string | null
@@ -42,3 +47,4 @@ export interface BookingDetail {
   createdAt: string
   items: BookingItem[]
 }
+

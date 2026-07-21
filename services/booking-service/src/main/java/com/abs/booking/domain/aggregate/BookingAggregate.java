@@ -26,6 +26,8 @@ public class BookingAggregate {
     private Long flightId;
     private BookingStatus status;
     private BigDecimal totalAmount;
+    private Integer baggageWeightKg;
+    private BigDecimal baggageFee;
     @Builder.Default
     private String currency = "VND";
     private LocalDateTime heldAt;
@@ -42,7 +44,7 @@ public class BookingAggregate {
         items.add(item);
     }
 
-    public static BookingAggregate createHold(String bookingCode, Long userId, Long flightId, BigDecimal totalAmount, int holdTtlMinutes) {
+    public static BookingAggregate createHold(String bookingCode, Long userId, Long flightId, BigDecimal totalAmount, Integer baggageWeightKg, BigDecimal baggageFee, int holdTtlMinutes) {
         LocalDateTime now = LocalDateTime.now();
         return BookingAggregate.builder()
                 .bookingCode(bookingCode)
@@ -50,6 +52,8 @@ public class BookingAggregate {
                 .flightId(flightId)
                 .status(BookingStatus.HELD)
                 .totalAmount(totalAmount)
+                .baggageWeightKg(baggageWeightKg != null ? baggageWeightKg : 0)
+                .baggageFee(baggageFee != null ? baggageFee : BigDecimal.ZERO)
                 .currency("VND")
                 .heldAt(now)
                 .expiresAt(now.plusMinutes(holdTtlMinutes))
@@ -57,6 +61,7 @@ public class BookingAggregate {
                 .items(new ArrayList<>())
                 .build();
     }
+
 
     public void confirm(String paymentId) {
         if (this.status != BookingStatus.HELD) {

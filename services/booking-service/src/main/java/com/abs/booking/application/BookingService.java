@@ -85,7 +85,13 @@ public class BookingService {
             throw new SeatNotAvailableException(req.flightId(), req.seatNo());
         }
 
-        BigDecimal price = seatInfo.price();
+        BigDecimal seatPrice = seatInfo.price();
+        int baggageKg = (req.extraBaggageKg() != null) ? req.extraBaggageKg() : 0;
+        if (baggageKg < 0 || baggageKg > 20) {
+            throw new IllegalArgumentException("Hành lý ký gửi phải từ 0 đến tối đa 20kg");
+        }
+        BigDecimal baggageFee = BigDecimal.valueOf(baggageKg * 1000L);
+        BigDecimal totalAmount = seatPrice.add(baggageFee);
 
         // Redis distributed lock
         boolean acquired = seatLockService.acquireLock(
@@ -103,14 +109,14 @@ public class BookingService {
         }
 
         // Build using aggregate factory and save booking
-        BookingAggregate booking = BookingAggregate.createHold(bookingCode, userId, req.flightId(), price,
-                holdTtlMinutes);
+        BookingAggregate booking = BookingAggregate.createHold(bookingCode, userId, req.flightId(), totalAmount,
+                baggageKg, baggageFee, holdTtlMinutes);
 
         BookingItem item = BookingItem.builder()
                 .seatNo(req.seatNo())
                 .passengerName(req.passengerName())
                 .passengerPassport(req.passengerPassport())
-                .price(price)
+                .price(seatPrice)
                 .build();
 
         booking.addItem(item);
@@ -122,18 +128,21 @@ public class BookingService {
         // Increment metric
         heldCounter.increment();
 
-        log.info("Seat held successfully: bookingCode={}, flightId={}, seatNo={}",
-                bookingCode, req.flightId(), req.seatNo());
+        log.info("Seat held successfully: bookingCode={}, flightId={}, seatNo={}, baggageKg={}, baggageFee={}, totalAmount={}",
+                bookingCode, req.flightId(), req.seatNo(), baggageKg, baggageFee, totalAmount);
 
         return HoldSeatResponse.of(
                 booking.getId(),
                 booking.getBookingCode(),
                 booking.getFlightId(),
                 req.seatNo(),
-                price,
+                totalAmount,
+                baggageKg,
+                baggageFee,
                 booking.getCurrency(),
                 booking.getExpiresAt());
     }
+
 
     @Transactional(readOnly = true)
     public BookingDetailResponse getBookingById(Long id) {

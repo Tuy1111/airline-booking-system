@@ -14,6 +14,8 @@ public record BookingDetailResponse(
         Long flightId,
         BookingStatus status,
         BigDecimal totalAmount,
+        Integer baggageWeightKg,
+        BigDecimal baggageFee,
         String currency,
         LocalDateTime heldAt,
         LocalDateTime expiresAt,
@@ -53,6 +55,8 @@ public record BookingDetailResponse(
                 b.getFlightId(),
                 b.getStatus(),
                 b.getTotalAmount(),
+                b.getBaggageWeightKg(),
+                b.getBaggageFee(),
                 b.getCurrency(),
                 b.getHeldAt(),
                 b.getExpiresAt(),
@@ -64,3 +68,4 @@ public record BookingDetailResponse(
         );
     }
 }
+

@@ -11,7 +11,11 @@ import java.util.List;
 
 @Entity
 @Table(name = "booking")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class BookingEntity {
 
     @Id
@@ -22,10 +26,10 @@ public class BookingEntity {
     private String bookingCode;
 
     @Column(name = "user_id", nullable = false)
-    private Long userId;          // logical ref → user-service
+    private Long userId; // logical ref → user-service
 
     @Column(name = "flight_id", nullable = false)
-    private Long flightId;        // logical ref → flight-search-service
+    private Long flightId; // logical ref → flight-search-service
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -34,7 +38,14 @@ public class BookingEntity {
     @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "baggage_weight_kg")
+    private Integer baggageWeightKg;
+
+    @Column(name = "baggage_fee", precision = 12, scale = 2)
+    private BigDecimal baggageFee;
+
     @Column(nullable = false, length = 3)
+
     @Builder.Default
     private String currency = "VND";
 
@@ -51,7 +62,7 @@ public class BookingEntity {
     private LocalDateTime cancelledAt;
 
     @Column(name = "payment_id", length = 50)
-    private String paymentId;     // logical ref → payment-service
+    private String paymentId; // logical ref → payment-service
 
     @Version
     private Long version;

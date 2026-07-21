@@ -19,8 +19,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      backend_changed: ${{ steps.detect.outputs.backend_changed }}
+      backend_matrix: ${{ steps.detect.outputs.backend_matrix }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed services
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 .github/scripts/detect-services.py
+
   frontend-build:
     name: Frontend lint and build
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -48,9 +70,14 @@ jobs:
         run: npm run build
 
   maven-package:
-    name: Maven package
+    name: Maven package - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.backend_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.backend_matrix) }}
 
     steps:
       - name: Checkout
@@ -63,8 +90,8 @@ jobs:
           java-version: "21"
           cache: maven
 
-      - name: Package reactor
-        run: mvn -B -ntp -DskipTests package
+      - name: Package module
+        run: mvn -B -ntp -pl "${{ matrix.module }}" -am -DskipTests package
 
   compose-config:
     name: Validate Docker Compose
@@ -83,26 +110,13 @@ jobs:
 
   docker-build:
     name: Docker build - ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.backend_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: service-registry
-            module: infra/service-registry
-          - name: api-gateway
-            module: infra/api-gateway
-          - name: flight-search-service
-            module: services/flight-search-service
-          - name: booking-service
-            module: services/booking-service
-          - name: user-service
-            module: services/user-service
-          - name: payment-service
-            module: services/payment-service
-          - name: notification-service
-            module: services/notification-service
+      matrix: ${{ fromJSON(needs.changes.outputs.backend_matrix) }}
 
     steps:
       - name: Checkout
@@ -125,6 +139,8 @@ jobs:
 
   frontend-docker-build:
     name: Docker build - frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

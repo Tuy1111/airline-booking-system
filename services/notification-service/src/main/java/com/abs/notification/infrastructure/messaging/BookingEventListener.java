@@ -2,6 +2,7 @@ package com.abs.notification.infrastructure.messaging;
 
 import com.abs.notification.application.port.in.SendEmailUseCase;
 import com.abs.notification.application.dto.*;
+import com.abs.notification.application.usecase.SendDirectNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class BookingEventListener {
 
     private final SendEmailUseCase notificationService;
+    private final SendDirectNotificationService directNotificationService;
 
     @KafkaListener(topics = "${app.notification.kafka.booking-confirmed-topic}",
             containerFactory = "kafkaListenerContainerFactory")
@@ -37,6 +39,12 @@ public class BookingEventListener {
                         "currency", evt.currency()
                 ),
                 "BOOKING_CONFIRMED:" + evt.bookingCode()));
+        directNotificationService.send(
+                evt.userId(),
+                "Đặt vé thành công",
+                "Vé " + evt.bookingCode() + " đã được xác nhận thành công.",
+                "BOOKING_CONFIRMED",
+                "PUSH:BOOKING_CONFIRMED:" + evt.bookingCode());
     }
 
     @KafkaListener(topics = "${app.notification.kafka.booking-cancelled-topic}",
@@ -52,6 +60,12 @@ public class BookingEventListener {
                         "reason", evt.reason()
                 ),
                 "BOOKING_CANCELLED:" + evt.bookingCode()));
+        directNotificationService.send(
+                evt.userId(),
+                "Vé đã bị hủy",
+                "Vé " + evt.bookingCode() + " đã bị hủy. Lý do: " + evt.reason(),
+                "BOOKING_CANCELLED",
+                "PUSH:BOOKING_CANCELLED:" + evt.bookingCode());
     }
 
     // Chú ý: KHÔNG subscribe "payment.failed" ở đây.

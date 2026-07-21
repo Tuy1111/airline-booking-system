@@ -137,14 +137,12 @@ export function App() {
   const [manualSeat, setManualSeat] = useState('1A')
 
   // Booking & Payment State
-  const [passengerName, setPassengerName] = useState(auth?.fullName ?? '')
-  const [passengerPassport, setPassengerPassport] = useState('')
+  const [passengerName, setPassengerName] = useState(auth?.fullName || 'Nguyen Van A')
+  const [passengerPassport, setPassengerPassport] = useState('P1234567')
   const [extraBaggageKg, setExtraBaggageKg] = useState<number>(0)
   const [holdResult, setHoldResult] = useState<HoldSeatResponse | null>(null)
 
   const [payment, setPayment] = useState<PaymentResponse | null>(null)
-  const [payingBookingId, setPayingBookingId] = useState<number | null>(null)
-  const [ticketBookingId, setTicketBookingId] = useState<number | null>(null)
   const [userBookings, setUserBookings] = useState<BookingDetail[]>([])
   const [adminFlights, setAdminFlights] = useState<FlightSummary[]>([])
   const [adminBookings, setAdminBookings] = useState<BookingDetail[]>([])
@@ -153,18 +151,10 @@ export function App() {
   const [userProfile, setUserProfile] = useState<UserView | null>(null)
   const [isProfileLoading, setIsProfileLoading] = useState(false)
 
-  useEffect(() => {
-    setPassengerName(userProfile?.fullName ?? auth?.fullName ?? '')
-    setPassengerPassport(userProfile?.passportNumber ?? '')
-  }, [auth, userProfile])
-
   // Notifications State
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false)
-  const paymentId = payment?.id
-  const paymentBookingId = payment?.bookingId
-  const paymentStatus = payment?.status
 
   // Fetch real master data from backend APIs on startup
   useEffect(() => {
@@ -233,14 +223,19 @@ export function App() {
   // The webhook updates the backend asynchronously, so the payment screen
   // must not rely on the user clicking the manual status-check button.
   useEffect(() => {
-    if (paymentId === undefined || paymentStatus !== 'PENDING') return
+    if (!payment || payment.status !== 'PENDING') return
 
     const intervalId = window.setInterval(async () => {
       try {
-        const latest = await paymentApi.getPayment(paymentId)
+        const latest = await paymentApi.getPayment(payment.id)
         setPayment(latest)
-        if (latest.status === 'FAILED') {
+        if (latest.status === 'SUCCESS') {
+          addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
+          loadUserBookings()
+          loadNotifications()
+        } else if (latest.status === 'FAILED') {
           addToast('error', 'Thanh toán thất bại hoặc đã hết hạn giữ ghế.')
+          loadNotifications()
         }
       } catch (err) {
         console.warn('Could not poll payment status:', err)
@@ -248,44 +243,7 @@ export function App() {
     }, 3000)
 
     return () => window.clearInterval(intervalId)
-  }, [paymentId, paymentStatus])
-
-  // Payment and booking are updated by separate services. Keep syncing the
-  // booking after payment succeeds, then open the ticket only once confirmed.
-  useEffect(() => {
-    if (paymentBookingId === undefined || paymentStatus !== 'SUCCESS') return
-
-    let disposed = false
-    const syncBooking = async () => {
-      try {
-        const booking = await bookingApi.getBooking(paymentBookingId)
-        if (disposed) return
-
-        setUserBookings((items) => [booking, ...items.filter((item) => item.id !== booking.id)])
-        if (booking.status === 'CONFIRMED') {
-          disposed = true
-          setTicketBookingId(booking.id)
-          setActiveTab('bookings')
-          setPayment(null)
-          setHoldResult(null)
-          addToast('success', 'Thanh toán thành công. Vé điện tử đã sẵn sàng.')
-        } else if (booking.status !== 'HELD') {
-          disposed = true
-          setPayment(null)
-          addToast('error', 'Không thể phát hành vé từ đơn đặt chỗ này. Vui lòng liên hệ hỗ trợ.')
-        }
-      } catch (err) {
-        console.warn('Could not sync confirmed booking:', err)
-      }
-    }
-
-    void syncBooking()
-    const intervalId = window.setInterval(syncBooking, 1500)
-    return () => {
-      disposed = true
-      window.clearInterval(intervalId)
-    }
-  }, [paymentBookingId, paymentStatus])
+  }, [payment?.id, payment?.status])
 
   useEffect(() => {
     if (isAdmin && activeTab === 'admin') loadAdminData()
@@ -512,58 +470,15 @@ export function App() {
     try {
       const res = await paymentApi.getPayment(payment.id)
       setPayment(res)
-      if (res.status !== 'SUCCESS') {
+      if (res.status === 'SUCCESS') {
+        addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
+        loadUserBookings()
+        loadNotifications()
+      } else {
         addToast('info', `Trạng thái thanh toán hiện tại: ${res.status}`)
       }
     } catch (err) {
       addToast('error', getErrorMessage(err))
-    }
-  }
-
-  const handlePayBooking = async (booking: BookingDetail) => {
-    if (booking.status !== 'HELD') return
-    if (booking.expiresAt && new Date(booking.expiresAt).getTime() <= Date.now()) {
-      addToast('warning', 'Đơn giữ chỗ đã hết hạn. Vui lòng làm mới danh sách.')
-      loadUserBookings()
-      return
-    }
-
-    setPayingBookingId(booking.id)
-    try {
-      const [flight, existingPayments] = await Promise.all([
-        flightApi.getFlight(booking.flightId),
-        paymentApi.getByBooking(booking.id),
-      ])
-      const nextPayment = existingPayments.find((item) => item.status === 'SUCCESS')
-        ?? existingPayments.find((item) => item.status === 'PENDING')
-        ?? await paymentApi.createPayment({
-          bookingId: booking.id,
-          amount: booking.totalAmount,
-          idempotencyKey: `web-${booking.id}-${Date.now()}`,
-          method: 'BANK_TRANSFER',
-        })
-
-      setSelectedFlight(flight)
-      setSelectedSeat(booking.items[0]?.seatNo ?? '')
-      setHoldResult({
-        bookingId: booking.id,
-        bookingCode: booking.bookingCode,
-        flightId: booking.flightId,
-        seatNo: booking.items[0]?.seatNo ?? '',
-        price: booking.totalAmount,
-        baggageWeightKg: booking.baggageWeightKg,
-        baggageFee: booking.baggageFee,
-        currency: booking.currency,
-        holdExpiresAt: booking.expiresAt ?? '',
-        message: 'Tiếp tục thanh toán đơn giữ chỗ',
-      })
-      setPayment(nextPayment)
-      setActiveTab('search')
-      setStep('passenger-payment')
-    } catch (err) {
-      addToast('error', getErrorMessage(err))
-    } finally {
-      setPayingBookingId(null)
     }
   }
 
@@ -817,6 +732,7 @@ export function App() {
                   onCreatePayment={handleCreatePayment}
                   onCheckPaymentStatus={handleCheckPaymentStatus}
                   isCreatingPayment={isCreatingPayment}
+                  onViewETicket={() => setActiveTab('bookings')}
                   formatMoney={formatMoney}
                   user={auth}
                   onLogin={keycloakLogin}
@@ -831,13 +747,8 @@ export function App() {
           <div className="route-shell route-bookings pt-8">
             <MyBookingsETicket
               bookings={userBookings}
-              profile={userProfile}
               onCancelBooking={handleCancelBooking}
-              onPayBooking={handlePayBooking}
               onRefreshBookings={loadUserBookings}
-              payingBookingId={payingBookingId}
-              openBookingId={ticketBookingId}
-              onTicketOpened={() => setTicketBookingId(null)}
               formatMoney={formatMoney}
               formatDateTime={formatDateTime}
             />

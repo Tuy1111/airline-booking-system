@@ -1,18 +1,98 @@
 server:
   port: 8080
-
 spring:
   application:
     name: api-gateway
   main:
     web-application-type: reactive
-
+  # RequestRateLimiter (route booking) dung Redis. Khong khai bao thi mac dinh
+  # localhost:6379 -> trong Docker se fail vi Redis nam o container "redis".
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_URL}/realms/airline-booking
+          jwk-set-uri: ${KEYCLOAK_INTERNAL_URL:${KEYCLOAK_URL}}/realms/airline-booking/protocol/openid-connect/certs
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # 1. Flight Search Service (Có cả api public cho khách vãng lai xem lịch bay)
+            - id: flight-search-service
+              uri: lb://flight-search-service
+              predicates:
+                - Path=/api/v1/flights/**,/api/v1/airports/**,/api/v1/airlines/**,/api/v1/routes/**
+            # 2. Booking Service (Cần áp dụng Rate Limiter chống bot spam giữ chỗ/ghế)
+            - id: booking-service
+              uri: lb://booking-service
+              predicates:
+                - Path=/api/v1/bookings/**
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
+                    redis-rate-limiter.requestedTokens: 1
+                    key-resolver: "#{@ipKeyResolver}"
+            # 3. User Service (Quản lý hồ sơ hành khách)
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/users/**
+            # 4. Payment Service (Xử lý giao dịch mua vé)
+            - id: payment-service
+              uri: lb://payment-service
+              predicates:
+                - Path=/api/v1/payments/**
+            # 5. Notification Service (Gửi mail xác nhận, reminder)
+            - id: notification-service
+              uri: lb://notification-service
+              predicates:
+                - Path=/api/v1/notifications/**
+          # Cấu hình CORS cho phép ReactJS gọi API sang Gateway công khai
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                # Danh sach ngan cach boi dau phay, dat trong .env (CORS_ALLOWED_ORIGINS).
+                # Local: http://localhost:3000,http://localhost:5173
+                # VPS  : phai them origin cua frontend (vd http://143.198.213.125)
+                #        neu khong browser se chan request.
+                allowed-origins: ${CORS_ALLOWED_ORIGINS}
+                allowed-methods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowed-headers: "*"
+                allow-credentials: true
+                max-age: 3600
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: true
+    lease-expiration-duration-in-seconds: 30
+    lease-renewal-interval-in-seconds: 10
+    instance-id: ${spring.application.name}:${server.port}
 management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus, metrics
+        # Gộp chung các endpoint cần thiết từ cả 2 file
+        include: health, info, gateway, prometheus, metrics
   endpoint:
+    gateway:
+      access: unrestricted
     prometheus:
       access: unrestricted
   metrics:
@@ -20,11 +100,11 @@ management:
       application: ${spring.application.name}
   tracing:
     sampling:
-      probability: 1.0
+      probability: 1.0 # Trace 100% request (Dành cho Dev, lên Prod nên giảm xuống 0.1)
   zipkin:
     tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
-
+      endpoint: ${ZIPKIN_ENDPOINT}
 logging:
   pattern:
+    # Pattern log kèm theo Trace ID và Span ID từ Micrometer Tracing
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"

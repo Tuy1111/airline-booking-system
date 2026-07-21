@@ -5,8 +5,9 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/notify_db
-    username: ${DB_USER:abs}
+    # Cấu hình đọc từ .env ở root repo. Docker set DB_HOST=postgres/DB_PORT=5432.
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/notify_db
+    username: ${DB_USER}
     password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
   jpa:
@@ -21,24 +22,21 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  mvc:
-    pathmatch:
-      base-path: /api/v1
 
   # SMTP -> MailHog in dev (no auth)
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
     properties:
       mail.smtp.auth: false
       mail.smtp.starttls.enable: false
 
   # RabbitMQ command queue (cmd.email.send / cmd.sms.send)
   rabbitmq:
-    host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5672}
-    username: ${RABBIT_USER:guest}
-    password: ${RABBIT_PASS:guest}
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+    username: ${RABBIT_USER}
+    password: ${RABBIT_PASS}
     listener:
       simple:
         acknowledge-mode: auto
@@ -47,12 +45,12 @@ spring:
           max-attempts: 3
           initial-interval: 1s
 
-  # Kafka event consumer (booking.confirmed, payment.failed, ...)
+  # Kafka event consumer (booking.confirmed, booking.cancelled)
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP}
     consumer:
       group-id: notification-service
-      auto-offset-reset: earliest
+      auto-offset-reset: latest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -60,14 +58,13 @@ spring:
 
 app:
   notification:
-    from-address: ${MAIL_FROM:no-reply@airline.local}
+    from-address: ${MAIL_FROM}
     rabbit:
       email-queue: cmd.email.send
       sms-queue: cmd.sms.send
     kafka:
       booking-confirmed-topic: booking.confirmed
       booking-cancelled-topic: booking.cancelled
-      payment-failed-topic: payment.failed
 
 management:
   endpoints:
@@ -85,19 +82,26 @@ management:
   tracing:
     sampling:
       probability: 1.0
+    enabled: ${TRACING_ENABLED}
   zipkin:
     tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+      endpoint: ${ZIPKIN_ENDPOINT}
 
 logging:
+  level:
+    org.apache.kafka: WARN
+    org.springframework.kafka: WARN
+    org.springframework.amqp: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
 
 eureka:
   instance:
-    hostname: localhost
+    # Khong set hostname: prefer-ip-address=true -> Eureka dang ky bang IP
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: ${EUREKA_URL}

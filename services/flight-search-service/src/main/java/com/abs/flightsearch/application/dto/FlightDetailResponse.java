@@ -30,13 +30,7 @@ public record FlightDetailResponse(
 ) {
     public static FlightDetailResponse of(FlightAggregate f, SeatInventoryAggregate inv) {
         BigDecimal base = f.getBasePrice();
-        BigDecimal current = base;
-
-        if (inv != null && inv.getTotal() > 0) {
-            double occupancy = (double) inv.getBooked() / inv.getTotal();
-            BigDecimal multiplier = BigDecimal.valueOf(1.0 + 0.1 * occupancy);
-            current = base.multiply(multiplier).setScale(0, RoundingMode.CEILING);
-        }
+        BigDecimal current = f.calculateCurrentPrice(inv);
 
         return new FlightDetailResponse(
                 f.getId(),

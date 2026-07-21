@@ -43,8 +43,10 @@ public class BookingEventPublisher {
         payload.put("to", to);
         payload.put("departureTime", departureTime);
         payload.put("seatNo", booking.getItems() == null || booking.getItems().isEmpty() ? "" : booking.getItems().get(0).getSeatNo());
+        payload.put("extraBaggageKg", booking.getBaggageWeightKg() == null ? 0 : booking.getBaggageWeightKg());
         payload.put("amount", booking.getTotalAmount());
         payload.put("currency", booking.getCurrency());
+
 
         OutboxEvent event = OutboxEvent.builder()
                 .aggregateType("Booking")

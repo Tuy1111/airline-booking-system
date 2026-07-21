@@ -1,0 +1,86 @@
+{
+  "id": "airline-booking",
+  "realm": "airline-booking",
+  "displayName": "Airline Booking System",
+  "enabled": true,
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "clients": [
+    {
+      "clientId": "airline-frontend",
+      "enabled": true,
+      "redirectUris": [
+        "http://localhost/*",
+        "http://localhost:3000/*",
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*",
+        "https://app.${DOMAIN}/*"
+      ],
+      "webOrigins": [
+        "http://localhost",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://app.${DOMAIN}"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "local-user-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "user_id",
+            "claim.name": "user_id",
+            "jsonType.label": "long",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "USER",
+        "description": "Standard User Role"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Administrator Role"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "testuser",
+      "enabled": true,
+      "email": "test@abs.local",
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "attributes": {
+        "user_id": [
+          "1"
+        ]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "USER"
+      ]
+    }
+  ]
+}

@@ -3,9 +3,22 @@ server:
 
 spring:
   application:
-    name: service-registry
+    name: service-registry # Giữ nguyên tên từ file 1 (hoặc đổi thành eureka-server tùy bạn)
 
 eureka:
+  instance:
+    hostname: localhost # BỔ SUNG: Định danh host cho Eureka Server
   client:
-    register-with-eureka: false
-    fetch-registry: false
+    register-with-eureka: false # Eureka Server không cần tự đăng ký với chính nó
+    fetch-registry: false       # Eureka Server không cần tải danh sách registry từ nơi khác
+  server:
+    # BỔ SUNG CHO MÔI TRƯỜNG DEV:
+    enable-self-preservation: false          # Tắt chế độ tự bảo vệ để dọn dẹp các service chết ngay lập tức
+    eviction-interval-timer-in-ms: 5000      # Quét và xóa các instance mất kết nối mỗi 5 giây (thay vì 60s)
+
+management:
+  # BỔ SUNG: Mở các endpoint giám sát (Actuator)
+  endpoints:
+    web:
+      exposure:
+        include: health,info,env

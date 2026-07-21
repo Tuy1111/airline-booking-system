@@ -48,6 +48,24 @@ public class BookingRepositoryAdapter implements BookingRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public Page<BookingAggregate> search(String keyword, BookingStatus status, Pageable pageable) {
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        Page<com.abs.booking.infrastructure.persistence.entity.BookingEntity> page;
+        if (hasKeyword && status != null) {
+            page = repository.findByStatusAndBookingCodeContainingIgnoreCaseOrderByCreatedAtDesc(
+                    status, keyword.trim(), pageable);
+        } else if (hasKeyword) {
+            page = repository.findByBookingCodeContainingIgnoreCaseOrderByCreatedAtDesc(keyword.trim(), pageable);
+        } else if (status != null) {
+            page = repository.findByStatusOrderByCreatedAtDesc(status, pageable);
+        } else {
+            page = repository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+        return page.map(BookingPersistenceMapper::toAggregate);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<BookingAggregate> findExpiredHolds(BookingStatus status, LocalDateTime now) {
         return repository.findExpiredHolds(status, now).stream()
                 .map(BookingPersistenceMapper::toAggregate)

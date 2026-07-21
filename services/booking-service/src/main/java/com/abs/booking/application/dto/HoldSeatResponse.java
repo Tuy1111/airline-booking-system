@@ -9,14 +9,18 @@ public record HoldSeatResponse(
         Long flightId,
         String seatNo,
         BigDecimal price,
+        Integer baggageWeightKg,
+        BigDecimal baggageFee,
         String currency,
         LocalDateTime holdExpiresAt,
         String message
 ) {
     public static HoldSeatResponse of(Long bookingId, String bookingCode, Long flightId,
-                                       String seatNo, BigDecimal price, String currency,
+                                       String seatNo, BigDecimal price, Integer baggageWeightKg,
+                                       BigDecimal baggageFee, String currency,
                                        LocalDateTime holdExpiresAt) {
-        return new HoldSeatResponse(bookingId, bookingCode, flightId, seatNo, price, currency,
+        return new HoldSeatResponse(bookingId, bookingCode, flightId, seatNo, price, baggageWeightKg, baggageFee, currency,
                 holdExpiresAt, "Seat held successfully. Please complete payment before expiry.");
     }
 }
+

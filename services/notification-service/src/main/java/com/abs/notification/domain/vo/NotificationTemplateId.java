@@ -1,5 +1,6 @@
 package com.abs.notification.domain.vo;
 
+import com.abs.notification.domain.enums.Channel;
 import lombok.*;
 
 import java.io.Serializable;

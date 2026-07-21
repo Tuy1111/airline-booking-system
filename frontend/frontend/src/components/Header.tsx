@@ -10,7 +10,6 @@ interface HeaderProps {
   onRegister: () => void
   unreadNotificationsCount: number
   onToggleNotifications: () => void
-  onOpenProfileModal: () => void
 }
 
 const navItems = [
@@ -28,7 +27,6 @@ export const Header: React.FC<HeaderProps> = ({
   onRegister,
   unreadNotificationsCount,
   onToggleNotifications,
-  onOpenProfileModal,
 }) => {
   const isAdmin = Boolean(
     user &&
@@ -61,9 +59,16 @@ export const Header: React.FC<HeaderProps> = ({
             {item.label}
           </button>
         ))}
-        <button type="button" onClick={onOpenProfileModal}>
-          Hồ sơ
-        </button>
+        {user && (
+          <button
+            type="button"
+            className={activeTab === 'profile' ? 'active' : ''}
+            aria-current={activeTab === 'profile' ? 'page' : undefined}
+            onClick={() => setActiveTab('profile')}
+          >
+            Hồ sơ
+          </button>
+        )}
         {isAdmin && (
           <button
             type="button"
@@ -89,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {user ? (
           <div className="signed-in-actions">
-            <button type="button" className="user-chip" onClick={onOpenProfileModal}>
+            <button type="button" className="user-chip" onClick={() => setActiveTab('profile')}>
               <span className="user-avatar" aria-hidden="true">{user.fullName?.[0] || 'U'}</span>
               <span className="user-details">
                 <strong>{user.fullName}</strong>

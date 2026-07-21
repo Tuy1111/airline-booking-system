@@ -1,10 +1,9 @@
 import React, { useState } from 'react'
 import type { UserView } from '../features/users/types'
 
-interface UserProfileModalProps {
-  isOpen: boolean
-  onClose: () => void
-  profile: UserView | null
+type UserProfilePageProps = {
+  profile: UserView
+  onBack: () => void
   onUpdateProfile: (data: {
     fullName: string
     phone: string
@@ -22,10 +21,9 @@ interface UserProfileModalProps {
   isUpdating: boolean
 }
 
-export const UserProfileModal: React.FC<UserProfileModalProps> = ({
-  isOpen,
-  onClose,
+export const UserProfilePage: React.FC<UserProfilePageProps> = ({
   profile,
+  onBack,
   onUpdateProfile,
   onSubmitPassport,
   onEarnMiles,
@@ -49,75 +47,90 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [milesAmount, setMilesAmount] = useState(1000)
   const [milesReason, setMilesReason] = useState('Chuyến bay hoàn thành VN123')
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 relative max-h-[90vh] flex flex-col">
-        {/* Modal Header */}
-        <div className="bg-slate-900 text-white p-6 relative">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full"
-          >
-            <span className="material-symbols-outlined text-2xl">close</span>
-          </button>
+    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-900"
+      >
+        <span className="material-symbols-outlined text-lg" aria-hidden="true">arrow_back</span>
+        Về trang chủ
+      </button>
 
+      <header className="mt-7 flex flex-col justify-between gap-6 border-b border-slate-200 pb-8 md:flex-row md:items-end">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-700">Tài khoản SkySwift</p>
+          <h1 className="mt-2 text-4xl font-black tracking-[-0.04em] text-slate-950 sm:text-5xl">Hồ sơ hành khách</h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">
+            Quản lý thông tin cá nhân, hộ chiếu và quyền lợi thành viên của bạn.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-xl font-black text-white">
+            {profile.fullName?.[0] || 'U'}
+          </div>
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white text-xl font-black flex items-center justify-center shadow-md">
-              {profile?.fullName?.[0] || 'U'}
-            </div>
             <div>
-              <h3 className="text-xl font-black text-white">{profile?.fullName || 'Hồ sơ người dùng'}</h3>
-              <p className="text-xs text-slate-400">{profile?.email}</p>
+              <h2 className="text-lg font-extrabold text-slate-950">{profile.fullName}</h2>
+              <p className="text-xs text-slate-500">{profile.email}</p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-[10px] font-bold uppercase tracking-wider border border-amber-400/30">
-                  Hạng: {profile?.loyaltyTier || 'BRONZE'}
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Hạng {profile.loyaltyTier || 'BRONZE'}
                 </span>
-                <span className="text-[10px] text-emerald-400 font-bold">
-                  KYC: {profile?.kycStatus || 'VERIFIED'}
+                <span className={`text-[10px] font-bold ${
+                  profile.kycStatus === 'VERIFIED'
+                    ? 'text-emerald-600'
+                    : profile.kycStatus === 'REJECTED'
+                      ? 'text-rose-600'
+                      : 'text-amber-600'
+                }`}>
+                  KYC: {profile.kycStatus || 'UNVERIFIED'}
                 </span>
               </div>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Modal Sub-Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-4 text-xs font-bold text-slate-600">
+      <div className="mt-8 grid items-start gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
+        <nav className="flex gap-2 overflow-x-auto lg:flex-col" aria-label="Các mục hồ sơ">
           <button
+            type="button"
             onClick={() => setTab('profile')}
-            className={`py-3 border-b-2 transition-all ${
+            className={`whitespace-nowrap rounded-xl px-4 py-3 text-left text-sm font-semibold transition-all active:scale-[0.98] ${
               tab === 'profile'
-                ? 'border-sky-600 text-sky-600 font-extrabold'
-                : 'border-transparent hover:text-slate-900'
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
             }`}
           >
             Thông tin cá nhân
           </button>
           <button
+            type="button"
             onClick={() => setTab('passport')}
-            className={`py-3 border-b-2 transition-all ${
+            className={`whitespace-nowrap rounded-xl px-4 py-3 text-left text-sm font-semibold transition-all active:scale-[0.98] ${
               tab === 'passport'
-                ? 'border-sky-600 text-sky-600 font-extrabold'
-                : 'border-transparent hover:text-slate-900'
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
             }`}
           >
             Hộ chiếu & KYC
           </button>
           <button
+            type="button"
             onClick={() => setTab('loyalty')}
-            className={`py-3 border-b-2 transition-all ${
+            className={`whitespace-nowrap rounded-xl px-4 py-3 text-left text-sm font-semibold transition-all active:scale-[0.98] ${
               tab === 'loyalty'
-                ? 'border-sky-600 text-sky-600 font-extrabold'
-                : 'border-transparent hover:text-slate-900'
+                ? 'bg-slate-900 text-white'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
             }`}
           >
-            Dặm thưởng Loyalty
+            Dặm thưởng
           </button>
-        </div>
+        </nav>
 
-        {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-sm">
+        <section className="min-w-0 rounded-[2rem] bg-white p-6 shadow-[0_24px_70px_rgba(15,23,42,0.08)] sm:p-8">
           {tab === 'profile' && (
             <form
               onSubmit={(e) => {
@@ -332,8 +345,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
           )}
-        </div>
+        </section>
       </div>
-    </div>
+    </section>
   )
 }

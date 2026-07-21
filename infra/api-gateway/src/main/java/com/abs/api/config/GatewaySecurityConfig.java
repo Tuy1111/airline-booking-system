@@ -37,6 +37,8 @@ public class GatewaySecurityConfig {
                                 "/api/v1/routes/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/notifications/me").authenticated()
                         .pathMatchers("/api/v1/notifications/**").hasRole("ADMIN")
+                        .pathMatchers("/api/v1/users/me", "/api/v1/users/me/**").authenticated()
+                        .pathMatchers("/api/v1/users/**").hasRole("ADMIN")
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

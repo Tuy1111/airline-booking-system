@@ -7,7 +7,7 @@ import { FlightSearchPage } from './components/FlightSearchPage'
 import { SeatPicker } from './components/SeatPicker'
 import { PassengerPayment } from './components/PassengerPayment'
 import { MyBookingsETicket } from './components/MyBookingsETicket'
-import { UserProfileModal } from './components/UserProfileModal'
+import { UserProfilePage } from './components/UserProfilePage'
 import { NotificationDrawer } from './components/NotificationDrawer'
 import { AdminDashboard } from './components/AdminDashboard'
 import { ToastContainer, type ToastMessage } from './components/ToastContainer'
@@ -140,7 +140,7 @@ export function App() {
 
   // User Profile State
   const [userProfile, setUserProfile] = useState<UserView | null>(null)
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [isProfileLoading, setIsProfileLoading] = useState(false)
 
   // Notifications State
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -174,11 +174,14 @@ export function App() {
   }, [auth])
 
   const loadUserProfile = async () => {
+    setIsProfileLoading(true)
     try {
-      const p = await userApi.getProfile(1)
+      const p = await userApi.getProfile()
       setUserProfile(p)
     } catch (err) {
       console.warn('Could not load user profile:', err)
+    } finally {
+      setIsProfileLoading(false)
     }
   }
 
@@ -313,7 +316,7 @@ export function App() {
   const handleUpdateProfile = async (data: any) => {
     setIsProfileUpdating(true)
     try {
-      const updated = await userApi.updateProfile(1, data)
+      const updated = await userApi.updateProfile(data)
       setUserProfile(updated)
       addToast('success', 'Đã cập nhật thông tin cá nhân!')
     } catch (err) {
@@ -326,9 +329,15 @@ export function App() {
   const handleSubmitPassport = async (data: any) => {
     setIsProfileUpdating(true)
     try {
-      const updated = await userApi.submitPassport(1, data)
+      const updated = await userApi.submitPassport(data)
       setUserProfile(updated)
-      addToast('success', 'Đã gửi thông tin hộ chiếu xác minh!')
+      await loadNotifications()
+      addToast(
+        updated.kycStatus === 'VERIFIED' ? 'success' : 'warning',
+        updated.kycStatus === 'VERIFIED'
+          ? 'Hộ chiếu đã được xác minh thành công!'
+          : 'Hộ chiếu không được chấp nhận.',
+      )
     } catch (err) {
       addToast('error', getErrorMessage(err))
     } finally {
@@ -338,7 +347,7 @@ export function App() {
 
   const handleEarnMiles = async (miles: number, reason: string) => {
     try {
-      const updated = await userApi.earnMiles(1, { miles, reason })
+      const updated = await userApi.earnMiles({ miles, reason })
       setUserProfile(updated)
       addToast('success', `Đã cộng ${miles} dặm thưởng thành công!`)
     } catch (err) {
@@ -348,7 +357,7 @@ export function App() {
 
   const handleRedeemMiles = async (miles: number, reason: string) => {
     try {
-      const updated = await userApi.redeemMiles(1, { miles, reason })
+      const updated = await userApi.redeemMiles({ miles, reason })
       setUserProfile(updated)
       addToast('success', `Đã đổi ${miles} dặm thưởng thành công!`)
     } catch (err) {
@@ -452,7 +461,6 @@ export function App() {
         onRegister={keycloakRegister}
         unreadNotificationsCount={notifications.filter((n) => n.status === 'PENDING').length}
         onToggleNotifications={() => setIsNotificationDrawerOpen((prev) => !prev)}
-        onOpenProfileModal={() => setIsProfileModalOpen(true)}
       />
 
       {/* Main Screen Views */}
@@ -578,6 +586,32 @@ export function App() {
           </div>
         )}
 
+        {activeTab === 'profile' && auth && (
+          isProfileLoading ? (
+            <section className="mx-auto max-w-6xl px-6 py-16" aria-live="polite">
+              <div className="h-8 w-56 animate-pulse rounded-lg bg-slate-200" />
+              <div className="mt-8 h-80 animate-pulse rounded-3xl bg-slate-100" />
+            </section>
+          ) : userProfile ? (
+            <UserProfilePage
+              profile={userProfile}
+              onBack={() => setActiveTab('home')}
+              onUpdateProfile={handleUpdateProfile}
+              onSubmitPassport={handleSubmitPassport}
+              onEarnMiles={handleEarnMiles}
+              onRedeemMiles={handleRedeemMiles}
+              isUpdating={isProfileUpdating}
+            />
+          ) : (
+            <section className="mx-auto max-w-xl px-6 py-20 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-400">person_off</span>
+              <h1 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Không tải được hồ sơ</h1>
+              <p className="mt-2 text-sm text-slate-500">Kiểm tra tài khoản người dùng rồi thử lại.</p>
+              <button type="button" className="primary-button mt-6" onClick={loadUserProfile}>Thử lại</button>
+            </section>
+          )
+        )}
+
         {/* TAB 4: ADMIN DASHBOARD */}
         {activeTab === 'admin' && (
           <div className="pt-8">
@@ -600,18 +634,6 @@ export function App() {
           </div>
         )}
       </main>
-
-      {/* User Profile Modal */}
-      <UserProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        profile={userProfile}
-        onUpdateProfile={handleUpdateProfile}
-        onSubmitPassport={handleSubmitPassport}
-        onEarnMiles={handleEarnMiles}
-        onRedeemMiles={handleRedeemMiles}
-        isUpdating={isProfileUpdating}
-      />
 
       {/* Notifications Drawer */}
       <NotificationDrawer

@@ -39,6 +39,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest().mutate()
                 .headers(headers -> {
                     headers.remove(GatewayConstants.HEADER_USER_ID);
+                    headers.remove(GatewayConstants.HEADER_USER_EMAIL);
                     headers.remove(GatewayConstants.HEADER_USER_NAME);
                     headers.remove(GatewayConstants.HEADER_USER_ROLES);
                 })
@@ -52,7 +53,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                 ? numericIdFromSubject(jwt.getSubject())
                 : String.valueOf(userIdClaim);
         String email = jwt.getClaimAsString("email");
+        String name = jwt.getClaimAsString("name");
+        if (name == null || name.isBlank()) {
+            name = jwt.getClaimAsString("preferred_username");
+        }
         String roles = extractRealmRoles(jwt.getClaim("realm_access"));
+        String displayName = name;
 
         log.debug("Enriching headers from Keycloak - userId: {}, roles: {}", userId, roles);
 
@@ -62,7 +68,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                         headers.set(GatewayConstants.HEADER_USER_ID, userId);
                     }
                     if (email != null && !email.isBlank()) {
-                        headers.set(GatewayConstants.HEADER_USER_NAME, email);
+                        headers.set(GatewayConstants.HEADER_USER_EMAIL, email);
+                    }
+                    if (displayName != null && !displayName.isBlank()) {
+                        headers.set(GatewayConstants.HEADER_USER_NAME, displayName);
                     }
                     headers.set(GatewayConstants.HEADER_USER_ROLES, roles);
                 })

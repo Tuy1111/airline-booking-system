@@ -85,6 +85,12 @@ public class UserAggregate {
     public static UserAggregate register(EmailAddress email, PasswordHash passwordHash,
                                          PersonName fullName, PhoneNumber phone,
                                          LocalDateTime registeredAt) {
+        return register(null, email, passwordHash, fullName, phone, registeredAt);
+    }
+
+    public static UserAggregate register(UserId id, EmailAddress email, PasswordHash passwordHash,
+                                         PersonName fullName, PhoneNumber phone,
+                                         LocalDateTime registeredAt) {
         Objects.requireNonNull(email, "email is required");
         Objects.requireNonNull(passwordHash, "passwordHash is required");
         Objects.requireNonNull(registeredAt, "registeredAt is required");
@@ -94,7 +100,7 @@ public class UserAggregate {
         PassengerProfile profile = PassengerProfile.create(fullName, phone);
         LoyaltyMembership loyalty = LoyaltyMembership.enroll(registeredAt);
 
-        UserAggregate user = new UserAggregate(null, email, passwordHash, UserStatus.ACTIVE, roles,
+        UserAggregate user = new UserAggregate(id, email, passwordHash, UserStatus.ACTIVE, roles,
                 registeredAt, null, 0, null, profile, loyalty);
         log.info("User registered: email={}, status={}, role={}", email.value(), UserStatus.ACTIVE, Role.USER);
         return user;

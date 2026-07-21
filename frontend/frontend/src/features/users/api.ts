@@ -6,29 +6,29 @@ const baseUrl = serviceBases.user
 const root = '/api/v1/users'
 
 export const userApi = {
-  getProfile(userId: number) {
-    return apiRequest<UserView>(baseUrl, `${root}/${userId}/profile`)
+  getProfile() {
+    return apiRequest<UserView>(baseUrl, `${root}/me`)
   },
-  updateProfile(userId: number, request: ProfileUpdateRequest) {
-    return apiRequest<UserView>(baseUrl, `${root}/${userId}/profile`, {
+  updateProfile(request: ProfileUpdateRequest) {
+    return apiRequest<UserView>(baseUrl, `${root}/me/profile`, {
       method: 'PUT',
       body: request,
     })
   },
-  earnMiles(userId: number, request: MilesRequest) {
-    return apiRequest<UserView>(baseUrl, `${root}/${userId}/miles/earn`, {
+  earnMiles(request: MilesRequest) {
+    return apiRequest<UserView>(baseUrl, `${root}/me/miles/earn`, {
       method: 'POST',
       body: request,
     })
   },
-  redeemMiles(userId: number, request: MilesRequest) {
-    return apiRequest<UserView>(baseUrl, `${root}/${userId}/miles/redeem`, {
+  redeemMiles(request: MilesRequest) {
+    return apiRequest<UserView>(baseUrl, `${root}/me/miles/redeem`, {
       method: 'POST',
       body: request,
     })
   },
-  submitPassport(userId: number, request: PassportSubmitRequest) {
-    return apiRequest<UserView>(baseUrl, `${root}/${userId}/passport`, {
+  submitPassport(request: PassportSubmitRequest) {
+    return apiRequest<UserView>(baseUrl, `${root}/me/passport`, {
       method: 'POST',
       body: request,
     })

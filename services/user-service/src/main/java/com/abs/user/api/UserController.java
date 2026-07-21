@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -76,6 +77,47 @@ public class UserController {
     @GetMapping("/{id}/profile")
     public UserView getProfile(@PathVariable("id") Long id) {
         return getUserUseCase.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+    }
+
+    @GetMapping("/me")
+    public UserView getCurrentUser(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Email") String email,
+            @RequestHeader(value = "X-User-Name", required = false) String fullName) {
+        return getUserUseCase.findOrCreateCurrent(userId, email, fullName);
+    }
+
+    @PutMapping("/me/profile")
+    public UserView updateCurrentProfile(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody UpdateProfileRequest request) {
+        return updatePassengerProfileUseCase.handle(new UpdatePassengerProfileCommand(
+                userId, request.fullName(), request.phone(), request.dateOfBirth(),
+                request.gender(), request.nationality()));
+    }
+
+    @PostMapping("/me/miles/earn")
+    public UserView earnCurrentUserMiles(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody MilesRequest request) {
+        return manageFrequentFlyerUseCase.earnMiles(
+                new EarnMilesCommand(userId, request.miles(), request.reason()));
+    }
+
+    @PostMapping("/me/miles/redeem")
+    public UserView redeemCurrentUserMiles(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody MilesRequest request) {
+        return manageFrequentFlyerUseCase.redeemMiles(
+                new RedeemMilesCommand(userId, request.miles(), request.reason()));
+    }
+
+    @PostMapping("/me/passport")
+    public UserView submitCurrentUserPassport(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody SubmitPassportRequest request) {
+        return verifyPassportUseCase.submitPassport(new SubmitPassportCommand(
+                userId, request.passportNumber(), request.issuingCountry(), request.expiryDate()));
     }
 
     @PutMapping("/{id}/profile")

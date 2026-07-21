@@ -45,7 +45,7 @@ async function parseResponse(response: Response) {
     return undefined
   }
 
-  if (contentType.includes('application/json')) {
+  if (contentType.includes('json')) {
     return response.json()
   }
 

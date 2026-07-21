@@ -1,23 +1,61 @@
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import type { BookingDetail } from '../features/bookings/types'
+import { flightApi } from '../features/flights/api'
+import type { FlightDetail } from '../features/flights/types'
+import type { UserView } from '../features/users/types'
 
 interface MyBookingsETicketProps {
   bookings: BookingDetail[]
+  profile: UserView | null
   onCancelBooking: (id: number) => void
+  onPayBooking: (booking: BookingDetail) => void | Promise<void>
   onRefreshBookings: () => void
+  payingBookingId: number | null
+  openBookingId: number | null
+  onTicketOpened: () => void
   formatMoney: (val: number | string | null | undefined) => string
   formatDateTime: (val: string | null | undefined) => string
 }
 
 export const MyBookingsETicket: React.FC<MyBookingsETicketProps> = ({
   bookings,
+  profile,
   onCancelBooking,
+  onPayBooking,
   onRefreshBookings,
+  payingBookingId,
+  openBookingId,
+  onTicketOpened,
   formatMoney,
   formatDateTime,
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [selectedETicket, setSelectedETicket] = useState<BookingDetail | null>(null)
+  const [selectedFlight, setSelectedFlight] = useState<FlightDetail | null>(null)
+  const [isTicketLoading, setIsTicketLoading] = useState(false)
+  const [ticketError, setTicketError] = useState('')
+
+  const openTicket = useCallback(async (booking: BookingDetail) => {
+    setSelectedETicket(booking)
+    setSelectedFlight(null)
+    setTicketError('')
+    setIsTicketLoading(true)
+    try {
+      setSelectedFlight(await flightApi.getFlight(booking.flightId))
+    } catch {
+      setTicketError('Không tải được thông tin chuyến bay. Vui lòng thử lại.')
+    } finally {
+      setIsTicketLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!openBookingId) return
+    const booking = bookings.find((item) => item.id === openBookingId)
+    if (!booking) return
+    void openTicket(booking)
+    onTicketOpened()
+  }, [bookings, onTicketOpened, openBookingId, openTicket])
 
   const filteredBookings = bookings.filter((b) => {
     if (filterStatus === 'ALL') return true
@@ -143,15 +181,28 @@ export const MyBookingsETicket: React.FC<MyBookingsETicketProps> = ({
 
               {/* Right: Actions */}
               <div className="md:col-span-4 flex items-center justify-end gap-3">
-                <button
-                  onClick={() => setSelectedETicket(b)}
-                  className="px-4 py-2.5 bg-slate-900 hover:bg-sky-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors"
-                >
-                  <span className="material-symbols-outlined text-base">qr_code</span>
-                  Vé điện tử
-                </button>
+                {b.status === 'CONFIRMED' && (
+                  <button
+                    onClick={() => void openTicket(b)}
+                    className="px-4 py-2.5 bg-slate-900 hover:bg-sky-600 active:scale-[0.98] text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span className="material-symbols-outlined text-base">confirmation_number</span>
+                    Xem vé điện tử
+                  </button>
+                )}
 
-                {b.status !== 'CANCELLED' && b.status !== 'EXPIRED' && (
+                {b.status === 'HELD' && (
+                  <button
+                    onClick={() => void onPayBooking(b)}
+                    disabled={payingBookingId === b.id}
+                    className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:opacity-60 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+                  >
+                    <span className="material-symbols-outlined text-base">payments</span>
+                    {payingBookingId === b.id ? 'Đang mở...' : 'Thanh toán'}
+                  </button>
+                )}
+
+                {b.status === 'HELD' && (
                   <button
                     onClick={() => onCancelBooking(b.id)}
                     className="px-3.5 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl border border-red-200 transition-colors"
@@ -167,32 +218,35 @@ export const MyBookingsETicket: React.FC<MyBookingsETicketProps> = ({
 
       {/* E-Ticket Boarding Pass Modal */}
       {selectedETicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 relative">
-            {/* Modal Header */}
-            <div className="bg-slate-900 text-white p-6 relative">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Vé điện tử ${selectedETicket.bookingCode}`}
+        >
+          <article className="my-auto w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl relative">
+            <header className="bg-slate-900 text-white px-6 py-5 md:px-8 relative">
               <button
                 onClick={() => setSelectedETicket(null)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full"
+                aria-label="Đóng vé điện tử"
+                className="absolute top-4 right-4 text-slate-400 hover:text-white focus-visible:text-white p-1 rounded-lg transition-colors"
               >
                 <span className="material-symbols-outlined text-2xl">close</span>
               </button>
 
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold">
+              <div className="flex items-center gap-4 pr-10">
+                <div className="w-11 h-11 rounded-xl bg-sky-500 text-white flex items-center justify-center">
                   <span className="material-symbols-outlined">flight</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-black tracking-tight">SkySwift Digital Boarding Pass</h3>
-                  <span className="text-xs text-sky-400 font-bold">Vé điện tử E-Ticket</span>
+                  <p className="text-xs font-semibold tracking-[0.2em] text-sky-300 uppercase">SkySwift Airlines</p>
+                  <h3 className="text-xl font-black tracking-tight">Vé điện tử / E-ticket</h3>
                 </div>
               </div>
-            </div>
+            </header>
 
-            {/* Ticket Content */}
-            <div className="p-6 space-y-6">
-              {/* Status & Code */}
-              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <div className="p-6 md:p-8 space-y-6">
+              <section className="flex flex-wrap justify-between items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">
                     Mã đặt chỗ (PNR)
@@ -212,63 +266,105 @@ export const MyBookingsETicket: React.FC<MyBookingsETicketProps> = ({
                 >
                   {selectedETicket.status}
                 </span>
+              </section>
+
+              {isTicketLoading ? (
+                <section className="grid grid-cols-3 gap-4" aria-live="polite">
+                  <div className="col-span-3 h-24 animate-pulse rounded-2xl bg-slate-100" />
+                  <div className="h-20 animate-pulse rounded-xl bg-slate-100" />
+                  <div className="h-20 animate-pulse rounded-xl bg-slate-100" />
+                  <div className="h-20 animate-pulse rounded-xl bg-slate-100" />
+                </section>
+              ) : ticketError ? (
+                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">
+                  {ticketError}
+                </p>
+              ) : selectedFlight && (
+                <section className="rounded-2xl bg-sky-50/70 p-5 md:p-6">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500">{selectedFlight.airlineName}</p>
+                      <strong className="text-lg font-black text-slate-900">{selectedFlight.flightNo}</strong>
+                    </div>
+                    <div className="flex flex-1 items-center justify-end gap-3 text-right md:gap-6">
+                      <div>
+                        <strong className="block text-3xl font-black tracking-tight text-slate-900">{selectedFlight.fromAirport}</strong>
+                        <span className="text-xs font-medium text-slate-500">{selectedFlight.fromCity}</span>
+                      </div>
+                      <span className="material-symbols-outlined text-sky-600">flight_takeoff</span>
+                      <div>
+                        <strong className="block text-3xl font-black tracking-tight text-slate-900">{selectedFlight.toAirport}</strong>
+                        <span className="text-xs font-medium text-slate-500">{selectedFlight.toCity}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-5 grid grid-cols-1 gap-3 border-t border-sky-100 pt-4 text-sm sm:grid-cols-3">
+                    <div><span className="block text-xs text-slate-500">Khởi hành</span><strong>{formatDateTime(selectedFlight.departureTime)}</strong></div>
+                    <div><span className="block text-xs text-slate-500">Đến nơi</span><strong>{formatDateTime(selectedFlight.arrivalTime)}</strong></div>
+                    <div><span className="block text-xs text-slate-500">Máy bay</span><strong>{selectedFlight.aircraftType || 'Đang cập nhật'}</strong></div>
+                  </div>
+                </section>
+              )}
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <section>
+                  <h4 className="mb-3 text-sm font-black text-slate-900">Thông tin hành khách</h4>
+                  <div className="space-y-3 rounded-2xl bg-slate-50 p-4 text-sm">
+                    {selectedETicket.items.map((item) => (
+                      <div key={item.id} className="grid grid-cols-[1fr_auto] gap-4 border-b border-slate-200 pb-3 last:border-0 last:pb-0">
+                        <div>
+                          <span className="block text-xs text-slate-500">Họ và tên</span>
+                          <strong className="text-slate-900">{item.passengerName}</strong>
+                          <span className="mt-1 block text-xs text-slate-500">Hộ chiếu / CCCD: {item.passengerPassport || 'Chưa cung cấp'}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="block text-xs text-slate-500">Ghế</span>
+                          <strong className="text-xl font-black text-sky-700">{item.seatNo}</strong>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-between gap-4 pt-1">
+                      <span className="text-slate-500">Hành lý</span>
+                      <strong>{selectedETicket.baggageWeightKg ? `${selectedETicket.baggageWeightKg} kg ký gửi` : '7 kg xách tay'}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="mb-3 text-sm font-black text-slate-900">Người đặt vé</h4>
+                  <dl className="space-y-3 rounded-2xl bg-slate-50 p-4 text-sm">
+                    <div><dt className="text-xs text-slate-500">Họ và tên</dt><dd className="font-bold text-slate-900">{profile?.fullName || selectedETicket.items[0]?.passengerName || 'Chưa cập nhật'}</dd></div>
+                    <div><dt className="text-xs text-slate-500">Email</dt><dd className="font-semibold text-slate-800">{profile?.email || 'Chưa cập nhật'}</dd></div>
+                    <div><dt className="text-xs text-slate-500">Số điện thoại</dt><dd className="font-semibold text-slate-800">{profile?.phone || 'Chưa cập nhật'}</dd></div>
+                  </dl>
+                </section>
               </div>
 
-              {/* Passenger & Flight Details */}
-              <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-700">
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Hành khách</span>
-                  <strong className="text-slate-900 text-sm">
-                    {selectedETicket.items?.[0]?.passengerName || 'N/A'}
-                  </strong>
-                </div>
+              <section className="grid grid-cols-2 gap-x-6 gap-y-4 border-y border-dashed border-slate-300 py-5 text-sm md:grid-cols-4">
+                <div><span className="block text-xs text-slate-500">Ngày đặt</span><strong>{formatDateTime(selectedETicket.createdAt)}</strong></div>
+                <div><span className="block text-xs text-slate-500">Xác nhận lúc</span><strong>{formatDateTime(selectedETicket.confirmedAt)}</strong></div>
+                <div><span className="block text-xs text-slate-500">Mã thanh toán</span><strong className="break-all">{selectedETicket.paymentId || 'N/A'}</strong></div>
+                <div><span className="block text-xs text-slate-500">Tổng thanh toán</span><strong className="text-base font-black text-orange-600">{formatMoney(selectedETicket.totalAmount)}</strong></div>
+              </section>
 
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Số ghế</span>
-                  <strong className="text-sky-600 text-sm">
-                    {selectedETicket.items?.[0]?.seatNo || 'N/A'}
-                  </strong>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Hành lý ký gửi</span>
-                  <strong className="text-slate-900 text-sm">
-                    {selectedETicket.baggageWeightKg && selectedETicket.baggageWeightKg > 0
-                      ? `${selectedETicket.baggageWeightKg} kg (+${formatMoney(selectedETicket.baggageFee ?? 0)})`
-                      : '7 kg xách tay'}
-                  </strong>
-                </div>
-
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Flight ID</span>
-                  <strong className="text-slate-800">{selectedETicket.flightId}</strong>
-                </div>
-
-                <div className="col-span-2 pt-2 border-t border-slate-100 flex justify-between items-center">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Giá thanh toán tổng cộng</span>
-                  <strong className="text-orange-600 text-base font-black">{formatMoney(selectedETicket.totalAmount)}</strong>
-                </div>
-              </div>
-
-              {/* Barcode Graphic */}
-              <div className="pt-4 border-t border-dashed border-slate-300 text-center space-y-2">
+              <section className="text-center space-y-2">
                 <div className="barcode-visual rounded-md shadow-inner" />
                 <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block">
                   *{selectedETicket.bookingCode}*
                 </span>
-              </div>
+                <p className="text-xs text-slate-500">Vui lòng xuất trình mã đặt chỗ và giấy tờ tùy thân khi làm thủ tục.</p>
+              </section>
             </div>
 
-            {/* Modal Footer */}
-            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end">
+            <footer className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end">
               <button
                 onClick={() => setSelectedETicket(null)}
-                className="px-6 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs"
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white rounded-xl font-bold text-xs transition-all"
               >
                 Đóng
               </button>
-            </div>
-          </div>
+            </footer>
+          </article>
         </div>
       )}
     </div>

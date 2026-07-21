@@ -19,9 +19,16 @@ x-observability: &observability
   TRACING_ENABLED: "${TRACING_ENABLED:-false}"
   ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
 
+x-default-logging: &default-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 # Mọi app dùng chung base build (Dockerfile ở root, chọn module qua build arg MODULE)
 x-app-build: &app-build
   restart: unless-stopped
+  logging: *default-logging
   networks: [abs]
 
 services:
@@ -33,6 +40,7 @@ services:
     image: caddy:2.8-alpine
     container_name: abs-caddy
     restart: unless-stopped
+    logging: *default-logging
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN chua set trong .env}
       ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL chua set trong .env}
@@ -56,6 +64,7 @@ services:
     image: postgres:16
     container_name: abs-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${DB_USER:?DB_USER chua set trong .env}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS chua set trong .env}
@@ -78,6 +87,7 @@ services:
     image: redis:7-alpine
     container_name: abs-redis
     restart: unless-stopped
+    logging: *default-logging
     command: redis-server --appendonly yes
     # Internal only. Do not publish Redis on the VPS host.
     volumes:
@@ -93,6 +103,7 @@ services:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: abs-zookeeper
     restart: unless-stopped
+    logging: *default-logging
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -102,6 +113,7 @@ services:
     image: confluentinc/cp-kafka:7.6.1
     container_name: abs-kafka
     restart: unless-stopped
+    logging: *default-logging
     depends_on: [zookeeper]
     ports: ["9092:9092"]
     environment:
@@ -138,11 +150,7 @@ services:
       - "5672"
       - "15672"
     # Gioi han Docker log de mot service loi khong lam day disk cua VPS.
-    logging:
-      driver: local
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *default-logging
     healthcheck:
       # `ping` only checks the Erlang runtime and can succeed before RabbitMQ
       # has finished booting or opened the AMQP listener. Wait for the broker
@@ -162,6 +170,7 @@ services:
     image: mailhog/mailhog:latest
     container_name: abs-mailhog
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "1025:1025"
       - "8025:8025"
@@ -170,6 +179,7 @@ services:
   # -------------------------------------------------------------------- APPS ---
   frontend:
     restart: unless-stopped
+    logging: *default-logging
     container_name: abs-frontend
     build:
       context: ./frontend/frontend
@@ -402,6 +412,7 @@ services:
     image: openzipkin/zipkin:3
     container_name: abs-zipkin
     restart: unless-stopped
+    logging: *default-logging
     profiles: ["monitoring"]
     ports: ["9411:9411"]
     networks: [abs]
@@ -410,6 +421,7 @@ services:
     image: prom/prometheus:v2.55.0
     container_name: abs-prometheus
     restart: unless-stopped
+    logging: *default-logging
     profiles: ["monitoring"]
     ports: ["9090:9090"]
     volumes:
@@ -420,6 +432,7 @@ services:
     image: grafana/grafana:11.2.0
     container_name: abs-grafana
     restart: unless-stopped
+    logging: *default-logging
     profiles: ["monitoring"]
     ports: ["3000:3000"]
     environment:
@@ -434,6 +447,7 @@ services:
     image: quay.io/keycloak/keycloak:24.0.4
     container_name: abs-keycloak
     restart: unless-stopped
+    logging: *default-logging
     environment:
       KC_DB: postgres
       # DB keycloak duoc tao san boi infra/docker/init-databases.sql

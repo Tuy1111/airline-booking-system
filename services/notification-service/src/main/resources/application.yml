@@ -50,7 +50,7 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP}
     consumer:
       group-id: notification-service
-      auto-offset-reset: earliest
+      auto-offset-reset: latest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
@@ -88,6 +88,12 @@ management:
       endpoint: ${ZIPKIN_ENDPOINT}
 
 logging:
+  level:
+    org.apache.kafka: WARN
+    org.springframework.kafka: WARN
+    org.springframework.amqp: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
   pattern:
     level: "%5p [${spring.application.name},%X{traceId:-},%X{spanId:-}]"
 

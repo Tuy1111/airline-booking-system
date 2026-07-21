@@ -232,8 +232,10 @@ export function App() {
         if (latest.status === 'SUCCESS') {
           addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
           loadUserBookings()
+          loadNotifications()
         } else if (latest.status === 'FAILED') {
           addToast('error', 'Thanh toán thất bại hoặc đã hết hạn giữ ghế.')
+          loadNotifications()
         }
       } catch (err) {
         console.warn('Could not poll payment status:', err)
@@ -471,6 +473,7 @@ export function App() {
       if (res.status === 'SUCCESS') {
         addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
         loadUserBookings()
+        loadNotifications()
       } else {
         addToast('info', `Trạng thái thanh toán hiện tại: ${res.status}`)
       }

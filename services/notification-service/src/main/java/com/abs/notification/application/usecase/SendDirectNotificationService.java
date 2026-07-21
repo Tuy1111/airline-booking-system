@@ -24,7 +24,17 @@ public class SendDirectNotificationService {
 
     @Transactional
     public Notification send(Long userId, String title, String content, String notificationType) {
+        return send(userId, title, content, notificationType, null);
+    }
+
+    @Transactional
+    public Notification send(Long userId, String title, String content, String notificationType, String dedupKey) {
         String type = notificationType.trim().toUpperCase(Locale.ROOT);
+        if (dedupKey != null) {
+            var existing = notificationRepository.findByDedupKey(dedupKey);
+            if (existing.isPresent()) return existing.get();
+        }
+
         Notification notification = Notification.builder()
                 .templateCode(type)
                 .userId(userId)
@@ -35,6 +45,7 @@ public class SendDirectNotificationService {
                         "type", type))
                 .status(NotificationStatus.PENDING)
                 .retryCount(0)
+                .dedupKey(dedupKey)
                 .build();
 
         // Direct notifications are accepted synchronously; PUSH delivery is stubbed by logging in dev.

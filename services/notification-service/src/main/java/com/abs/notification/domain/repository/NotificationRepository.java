@@ -14,5 +14,8 @@ public interface NotificationRepository {
     Optional<Notification> findByDedupKey(String dedupKey);
     Page<Notification> findAll(Pageable pageable);
     Page<Notification> findByUserId(Long userId, Pageable pageable);
+    Optional<Notification> findByIdAndUserId(Long id, Long userId);
+    long countUnreadByUserId(Long userId);
+    int markAllReadByUserId(Long userId, java.time.LocalDateTime readAt);
     List<Notification> findByStatus(NotificationStatus status, Pageable pageable);
 }

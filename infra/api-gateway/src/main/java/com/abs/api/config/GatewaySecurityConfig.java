@@ -43,7 +43,9 @@ public class GatewaySecurityConfig {
                                 "/api/v1/routes/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/bookings/**", "/api/v1/payments/**")
                                 .access(nonAdmin())
-                        .pathMatchers("/api/v1/notifications/me").authenticated()
+                        .pathMatchers(
+                                "/api/v1/notifications/me",
+                                "/api/v1/notifications/me/**").authenticated()
                         .pathMatchers("/api/v1/notifications/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/users/me", "/api/v1/users/me/**").authenticated()
                         .pathMatchers("/api/v1/users/**").hasRole("ADMIN")

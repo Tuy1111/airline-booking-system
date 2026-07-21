@@ -151,6 +151,7 @@ export function App() {
 
   // Notifications State
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false)
 
   // Fetch real master data from backend APIs on startup
@@ -197,10 +198,24 @@ export function App() {
   useEffect(() => {
     if (auth) {
       if (!isAdmin) loadUserBookings()
-      loadNotifications()
       loadUserProfile()
     }
   }, [auth, isAdmin])
+
+  useEffect(() => {
+    if (!auth) {
+      setNotifications([])
+      setUnreadNotificationsCount(0)
+      return
+    }
+
+    loadNotifications()
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') loadNotifications()
+    }, 30_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [auth])
 
   useEffect(() => {
     if (isAdmin && activeTab === 'admin') loadAdminData()
@@ -229,10 +244,44 @@ export function App() {
 
   const loadNotifications = async () => {
     try {
-      const res = await notificationApi.mine()
+      const [res, unread] = await Promise.all([
+        notificationApi.mine(),
+        notificationApi.unreadCount(),
+      ])
       setNotifications(res.content || [])
+      setUnreadNotificationsCount(unread.unreadCount)
     } catch (err) {
       console.warn('Could not load notifications:', err)
+    }
+  }
+
+  const handleToggleNotifications = () => {
+    const opening = !isNotificationDrawerOpen
+    setIsNotificationDrawerOpen(opening)
+    if (opening) loadNotifications()
+  }
+
+  const handleMarkNotificationRead = async (id: number) => {
+    const current = notifications.find((item) => item.id === id)
+    if (!current || current.readAt) return
+
+    try {
+      const updated = await notificationApi.markRead(id)
+      setNotifications((items) => items.map((item) => (item.id === id ? updated : item)))
+      setUnreadNotificationsCount((count) => Math.max(0, count - 1))
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
+    }
+  }
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      await notificationApi.markAllRead()
+      const readAt = new Date().toISOString()
+      setNotifications((items) => items.map((item) => ({ ...item, readAt: item.readAt ?? readAt })))
+      setUnreadNotificationsCount(0)
+    } catch (err) {
+      addToast('error', getErrorMessage(err))
     }
   }
 
@@ -544,8 +593,8 @@ export function App() {
         onLogin={keycloakLogin}
         onLogout={keycloakLogout}
         onRegister={keycloakRegister}
-        unreadNotificationsCount={notifications.filter((n) => n.status === 'PENDING').length}
-        onToggleNotifications={() => setIsNotificationDrawerOpen((prev) => !prev)}
+        unreadNotificationsCount={unreadNotificationsCount}
+        onToggleNotifications={handleToggleNotifications}
       />
 
       {/* Main Screen Views */}
@@ -727,7 +776,10 @@ export function App() {
         isOpen={isNotificationDrawerOpen}
         onClose={() => setIsNotificationDrawerOpen(false)}
         notifications={notifications}
+        unreadCount={unreadNotificationsCount}
         onRefresh={loadNotifications}
+        onMarkRead={handleMarkNotificationRead}
+        onMarkAllRead={handleMarkAllNotificationsRead}
         formatDateTime={formatDateTime}
       />
     </div>

@@ -5,7 +5,10 @@ interface NotificationDrawerProps {
   isOpen: boolean
   onClose: () => void
   notifications: NotificationItem[]
+  unreadCount: number
   onRefresh: () => void
+  onMarkRead: (id: number) => Promise<void>
+  onMarkAllRead: () => Promise<void>
   formatDateTime: (val: string | null | undefined) => string
 }
 
@@ -13,7 +16,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   isOpen,
   onClose,
   notifications,
+  unreadCount,
   onRefresh,
+  onMarkRead,
+  onMarkAllRead,
   formatDateTime,
 }) => {
   if (!isOpen) return null
@@ -25,7 +31,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-sky-400">notifications</span>
-            <h3 className="font-extrabold text-base">Thông báo hệ thống</h3>
+            <div>
+              <h3 className="font-extrabold text-base">Thông báo hệ thống</h3>
+              <p className="text-[11px] text-slate-400">{unreadCount} thông báo chưa đọc</p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -45,6 +54,18 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           </div>
         </div>
 
+        {unreadCount > 0 && (
+          <div className="border-b border-slate-100 px-4 py-2 text-right">
+            <button
+              type="button"
+              onClick={() => void onMarkAllRead()}
+              className="text-xs font-bold text-sky-600 hover:text-sky-700"
+            >
+              Đánh dấu tất cả đã đọc
+            </button>
+          </div>
+        )}
+
         {/* Notifications List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {notifications.length === 0 ? (
@@ -53,21 +74,28 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             </div>
           ) : (
             notifications.map((item) => (
-              <div
+              <button
+                type="button"
                 key={item.id}
-                className="bg-slate-50 border border-slate-200 rounded-2xl p-4 hover:border-sky-300 transition-all space-y-2"
+                onClick={() => void onMarkRead(item.id)}
+                className={`w-full text-left border rounded-2xl p-4 hover:border-sky-300 transition-all space-y-2 ${
+                  item.readAt ? 'bg-slate-50 border-slate-200' : 'bg-sky-50 border-sky-200'
+                }`}
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs">
-                      {item.channel === 'EMAIL'
-                        ? 'mail'
-                        : item.channel === 'SMS'
-                        ? 'sms'
-                        : 'notifications'}
+                  <div className="flex items-center gap-2">
+                    {!item.readAt && <span className="h-2 w-2 rounded-full bg-sky-500" aria-label="Chưa đọc" />}
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">
+                        {item.channel === 'EMAIL'
+                          ? 'mail'
+                          : item.channel === 'SMS'
+                          ? 'sms'
+                          : 'notifications'}
+                      </span>
+                      {item.channel}
                     </span>
-                    {item.channel}
-                  </span>
+                  </div>
                   <span
                     className={`badge ${
                       item.status === 'SENT'
@@ -81,14 +109,12 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                   </span>
                 </div>
 
-                <div className="text-xs font-bold text-slate-900">{item.templateCode}</div>
-                <div className="text-[11px] text-slate-600 font-medium">
-                  Người nhận: {item.recipient}
-                </div>
+                <div className="text-sm font-bold text-slate-900">{item.title}</div>
+                <div className="text-xs text-slate-600">{item.content}</div>
                 <div className="text-[10px] text-slate-400">
                   {formatDateTime(item.createdAt)}
                 </div>
-              </div>
+              </button>
             ))
           )}
         </div>

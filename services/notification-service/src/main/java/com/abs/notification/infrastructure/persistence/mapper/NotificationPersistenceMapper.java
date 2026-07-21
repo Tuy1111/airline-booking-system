@@ -21,6 +21,7 @@ public final class NotificationPersistenceMapper {
                 .dedupKey(entity.getDedupKey())
                 .createdAt(entity.getCreatedAt())
                 .sentAt(entity.getSentAt())
+                .readAt(entity.getReadAt())
                 .build();
     }
 
@@ -38,6 +39,7 @@ public final class NotificationPersistenceMapper {
                 .dedupKey(aggregate.getDedupKey())
                 .createdAt(aggregate.getCreatedAt())
                 .sentAt(aggregate.getSentAt())
+                .readAt(aggregate.getReadAt())
                 .build();
     }
 }

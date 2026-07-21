@@ -2,6 +2,8 @@ package com.abs.notification.api.controller;
 
 import com.abs.notification.api.dto.NotificationResponse;
 import com.abs.notification.api.dto.SendNotificationRequest;
+import com.abs.notification.api.dto.UnreadCountResponse;
+import com.abs.notification.domain.aggregate.Notification;
 import com.abs.notification.application.usecase.SendDirectNotificationService;
 import com.abs.notification.domain.repository.NotificationRepository;
 import jakarta.validation.Valid;
@@ -11,6 +13,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 /**
  * Exposes notification history and a synchronous HTTP entry point for service-to-service messages.
@@ -60,5 +64,28 @@ public class NotificationController {
             @RequestParam(name = "size", defaultValue = "20") int size) {
         return repo.findByUserId(userId, PageRequest.of(page, size))
                 .map(NotificationResponse::of);
+    }
+
+    @GetMapping("/me/unread-count")
+    public UnreadCountResponse unreadCount(@RequestHeader("X-User-Id") Long userId) {
+        return new UnreadCountResponse(repo.countUnreadByUserId(userId));
+    }
+
+    @PatchMapping("/me/{id}/read")
+    public ResponseEntity<NotificationResponse> markRead(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable("id") Long id) {
+        Notification notification = repo.findByIdAndUserId(id, userId).orElse(null);
+        if (notification == null) {
+            return ResponseEntity.notFound().build();
+        }
+        notification.markRead(LocalDateTime.now());
+        return ResponseEntity.ok(NotificationResponse.of(repo.save(notification)));
+    }
+
+    @PatchMapping("/me/read-all")
+    public ResponseEntity<Void> markAllRead(@RequestHeader("X-User-Id") Long userId) {
+        repo.markAllReadByUserId(userId, LocalDateTime.now());
+        return ResponseEntity.noContent().build();
     }
 }

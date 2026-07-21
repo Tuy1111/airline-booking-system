@@ -7,6 +7,13 @@ export interface NotificationItem {
   status: 'PENDING' | 'SENT' | 'FAILED'
   retryCount: number
   errorMessage: string | null
+  title: string
+  content: string
   createdAt: string
   sentAt: string | null
+  readAt: string | null
+}
+
+export interface UnreadCountResponse {
+  unreadCount: number
 }

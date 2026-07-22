@@ -19,11 +19,11 @@ public class FlightEntity {
     @Column(name = "flight_no", nullable = false, unique = true, length = 10)
     private String flightNo;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "route_id")
     private RouteEntity route;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "airline_code", referencedColumnName = "code")
     private AirlineEntity airline;
 

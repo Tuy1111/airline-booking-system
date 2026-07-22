@@ -27,7 +27,7 @@ public class GatewaySecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/actuator/health", "/api/v1/payments/webhooks/sepay").permitAll()
+                        .pathMatchers("/actuator/health", "/actuator/prometheus", "/api/v1/payments/webhooks/sepay").permitAll()
                         .pathMatchers(HttpMethod.GET,
                                 "/api/v1/flights/admin",
                                 "/api/v1/bookings/admin").hasRole("ADMIN")

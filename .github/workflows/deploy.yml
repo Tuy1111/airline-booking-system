@@ -115,6 +115,15 @@ jobs:
             deploy_failed=false
             full_deploy="${{ needs.changes.outputs.full_deploy }}"
             target_services="${{ needs.changes.outputs.services }}"
+            wait_for_compose() {
+              if docker compose -f docker-compose.prod.yml up -d "$@" --wait --wait-timeout 600; then
+                return 0
+              fi
+
+              echo "Compose reported unhealthy services. Waiting 45s before a final retry..."
+              sleep 45
+              docker compose -f docker-compose.prod.yml up -d "$@" --wait --wait-timeout 600
+            }
 
             if [ "$full_deploy" = "true" ]; then
               docker compose -f docker-compose.prod.yml build
@@ -125,7 +134,7 @@ jobs:
 
               # A dependency can still be inside its health-check start period
               # when the initial Compose graph is started on a small VPS.
-              if docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 600; then
+              if wait_for_compose --remove-orphans; then
                 echo "All services are ready."
               else
                 deploy_failed=true
@@ -134,7 +143,7 @@ jobs:
               echo "Deploying changed services: $target_services"
               # Service names come from the detector's fixed allow-list.
               docker compose -f docker-compose.prod.yml build $target_services
-              if docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate --wait --wait-timeout 600 $target_services; then
+              if wait_for_compose --no-deps --force-recreate $target_services; then
                 echo "Changed services are ready."
               else
                 deploy_failed=true

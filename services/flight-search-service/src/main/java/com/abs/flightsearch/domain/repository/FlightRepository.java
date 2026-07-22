@@ -18,4 +18,8 @@ public interface FlightRepository {
             LocalDateTime start,
             LocalDateTime end,
             FlightStatus status);
+    List<FlightAggregate> findUpcoming(LocalDateTime from, LocalDateTime to);
+    List<FlightAggregate> findByStatus(FlightStatus status);
+    void deleteById(Long id);
+    List<FlightAggregate> findAll();
 }

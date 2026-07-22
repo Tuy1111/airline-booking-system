@@ -4,6 +4,7 @@ import com.abs.booking.application.BookingService;
 import com.abs.booking.application.dto.BookingDetailResponse;
 import com.abs.booking.application.dto.HoldSeatRequest;
 import com.abs.booking.application.dto.HoldSeatResponse;
+import com.abs.booking.domain.vo.BookingStatus;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/bookings")
 @RequiredArgsConstructor
+
 public class BookingController {
 
     private final BookingService bookingService;
@@ -39,6 +41,15 @@ public class BookingController {
             @RequestParam(defaultValue = "20") int size) {
         Page<BookingDetailResponse> response = bookingService.getMyBookings(userId, status, page, size);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin")
+    public ResponseEntity<Page<BookingDetailResponse>> getAllBookings(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) BookingStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(bookingService.getAllBookings(keyword, status, page, size));
     }
 
     @DeleteMapping("/{id}")

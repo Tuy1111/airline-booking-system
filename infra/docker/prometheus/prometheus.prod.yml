@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+# Dung cho docker-compose.prod.yml: cac service chay dang container tren
+# network "abs" nen scrape qua ten service (Docker DNS noi bo), KHONG phai
+# host.docker.internal (chi dung khi service chay tren host, xem
+# infra/docker/prometheus/prometheus.yml cho dev local).
+scrape_configs:
+  - job_name: 'api-gateway'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['api-gateway:8080']
+
+  - job_name: 'flight-search-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['flight-search-service:8081']
+
+  - job_name: 'booking-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['booking-service:8082']
+
+  - job_name: 'user-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['user-service:8083']
+
+  - job_name: 'payment-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['payment-service:8084']
+
+  - job_name: 'notification-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['notification-service:8085']

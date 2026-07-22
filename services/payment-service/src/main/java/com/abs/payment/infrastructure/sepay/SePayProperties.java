@@ -17,4 +17,6 @@ public class SePayProperties {
     private String qrBase;
     private String qrTemplate = "compact";
     private int    expiresMinutes = 15;
+    private String webhookSecret;
+    private long   webhookTimestampToleranceSeconds = 300;
 }

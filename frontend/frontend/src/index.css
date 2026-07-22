@@ -1,0 +1,168 @@
+:root {
+  --ink: #102238;
+  --ink-soft: #4c6075;
+  --navy: #0b1f33;
+  --navy-raised: #14324d;
+  --accent: #db5b42;
+  --accent-strong: #c84932;
+  --accent-soft: #fff0ec;
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #f5f8fa;
+  --line: #d6e0e7;
+  --line-strong: #b8c7d2;
+  --success: #18745a;
+  --warning: #9b6412;
+  --danger: #b83f3f;
+  --radius-control: 10px;
+  --radius-panel: 18px;
+  --radius-feature: 26px;
+  --shadow-soft: 0 18px 50px rgba(28, 57, 82, 0.1);
+  font-family: 'Outfit', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  color: var(--ink);
+  background: var(--canvas);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  color: var(--ink);
+  background: var(--canvas);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 70%, white);
+  outline-offset: 3px;
+}
+
+::selection {
+  color: #fff;
+  background: var(--accent);
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.015em;
+}
+
+.badge-success { color: #0f5d47; background: #daf3e9; }
+.badge-warning { color: #7c4d07; background: #fff0c8; }
+.badge-danger { color: #8f3030; background: #ffe1df; }
+.badge-neutral { color: #42566b; background: #e8eef2; }
+.badge-info { color: #174f78; background: #dfeefa; }
+
+.seat-button {
+  width: 42px;
+  height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.seat-available { color: var(--ink); background: var(--surface-raised); }
+.seat-available:hover { color: var(--accent-strong); border-color: var(--accent); transform: translateY(-2px); }
+.seat-selected { color: #fff !important; border-color: var(--accent-strong) !important; background: var(--accent) !important; }
+.seat-held { color: #7c4d07; border-color: #e2bb62; background: #fff0c8; cursor: not-allowed; }
+.seat-booked { color: #8291a0; border-color: var(--line); background: var(--surface-muted); cursor: not-allowed; text-decoration: line-through; }
+.seat-first { border-width: 2px; border-color: #a76b22; }
+.seat-business { border-width: 2px; border-color: var(--navy-raised); }
+
+.barcode-visual {
+  width: 100%;
+  height: 48px;
+  background: repeating-linear-gradient(90deg, var(--navy), var(--navy) 2px, #fff 2px, #fff 4px, var(--navy) 4px, var(--navy) 7px, #fff 7px, #fff 9px);
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: fade-in-up 380ms cubic-bezier(.16, 1, .3, 1) both; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--surface-muted); }
+::-webkit-scrollbar-thumb { border: 3px solid var(--surface-muted); border-radius: 8px; background: #9dafbd; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

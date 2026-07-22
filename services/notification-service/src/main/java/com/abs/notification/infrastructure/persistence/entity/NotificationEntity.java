@@ -1,7 +1,7 @@
 package com.abs.notification.infrastructure.persistence.entity;
 
-import com.abs.notification.domain.vo.Channel;
-import com.abs.notification.domain.vo.NotificationStatus;
+import com.abs.notification.domain.enums.Channel;
+import com.abs.notification.domain.enums.NotificationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -46,9 +46,16 @@ public class NotificationEntity {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    /** Khoá chống trùng cho consumer bất đồng bộ (vd "BOOKING_CONFIRMED:ABS123"). UNIQUE khi khác null. */
+    @Column(name = "dedup_key", length = 150)
+    private String dedupKey;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
+
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
 }

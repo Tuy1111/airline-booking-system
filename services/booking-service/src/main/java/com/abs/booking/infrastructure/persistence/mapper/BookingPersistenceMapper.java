@@ -18,6 +18,8 @@ public final class BookingPersistenceMapper {
                 .flightId(entity.getFlightId())
                 .status(entity.getStatus())
                 .totalAmount(entity.getTotalAmount())
+                .baggageWeightKg(entity.getBaggageWeightKg())
+                .baggageFee(entity.getBaggageFee())
                 .currency(entity.getCurrency())
                 .heldAt(entity.getHeldAt())
                 .expiresAt(entity.getExpiresAt())
@@ -38,6 +40,8 @@ public final class BookingPersistenceMapper {
                 .flightId(aggregate.getFlightId())
                 .status(aggregate.getStatus())
                 .totalAmount(aggregate.getTotalAmount())
+                .baggageWeightKg(aggregate.getBaggageWeightKg())
+                .baggageFee(aggregate.getBaggageFee())
                 .currency(aggregate.getCurrency())
                 .heldAt(aggregate.getHeldAt())
                 .expiresAt(aggregate.getExpiresAt())
@@ -47,6 +51,7 @@ public final class BookingPersistenceMapper {
                 .version(aggregate.getVersion())
                 .createdAt(aggregate.getCreatedAt())
                 .build();
+
         aggregate.getItems().stream()
                 .map(BookingPersistenceMapper::toItemEntity)
                 .forEach(entity::addItem);

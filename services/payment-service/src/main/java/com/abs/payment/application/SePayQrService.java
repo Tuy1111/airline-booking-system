@@ -21,7 +21,7 @@ public class SePayQrService {
 
     /** Build VietQR URL theo chuẩn sepay.vn. Hiển thị ảnh QR cho client. */
     public String buildQrUrl(String transferCode, BigDecimal amount) {
-        return UriComponentsBuilder.fromHttpUrl(props.getQrBase())
+        return UriComponentsBuilder.fromUriString(props.getQrBase())
                 .queryParam("acc",      props.getBankAccount())
                 .queryParam("bank",     props.getBankCode())
                 .queryParam("amount",   amount.toPlainString())

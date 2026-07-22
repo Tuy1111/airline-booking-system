@@ -5,7 +5,8 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/payment_db
+    # Cấu hình đọc từ .env ở root repo. Docker set DB_HOST=postgres/DB_PORT=5432.
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/payment_db
     username: ${DB_USER}
     password: ${DB_PASS}
     driver-class-name: org.postgresql.Driver
@@ -21,13 +22,9 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
-  mvc:
-    path match:
-      base-path: /api/v1
-
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -37,13 +34,16 @@ spring:
 
 app:
   sepay:
-    api-key: ${SEPAY_API_KEY}
+    api-key: ${SEPAY_API_KEY:}
     bank-account: ${SEPAY_BANK_ACC}
     bank-code: ${SEPAY_BANK_CODE}
     account-holder: ${SEPAY_ACC_HOLDER}
-    qr-base: ${SEPAY_QR_BASE:https://qr.sepay.vn/img}
-    qr-template: ${SEPAY_QR_TEMPLATE:compact}
-    expires-minutes: ${SEPAY_EXPIRES_MIN:15}
+    qr-base: ${SEPAY_QR_BASE}
+    qr-template: ${SEPAY_QR_TEMPLATE}
+    expires-minutes: ${SEPAY_EXPIRES_MIN}
+    # HMAC-SHA256 webhook secret. Leave empty only for legacy API-key mode.
+    webhook-secret: ${SEPAY_WEBHOOK_SECRET:}
+    webhook-timestamp-tolerance-seconds: ${SEPAY_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS:300}
   kafka:
     topics:
       payment-completed: payment.completed
@@ -51,6 +51,9 @@ app:
   outbox:
     poll-interval-ms: 2000
     batch-size: 50
+  payment:
+    # Quét các payment PENDING quá hạn (expires_at) -> đánh FAILED + publish payment.failed
+    expiry-scan-ms: 60000
 
 management:
   endpoints:
@@ -66,10 +69,10 @@ management:
   tracing:
     sampling:
       probability: 1.0
-    enabled: ${TRACING_ENABLED:false}        # bật = true khi đã chạy Zipkin (Docker)
+    enabled: ${TRACING_ENABLED}              # bật = true khi đã chạy Zipkin (Docker)
   zipkin:
     tracing:
-      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+      endpoint: ${ZIPKIN_ENDPOINT}
 
 logging:
   pattern:
@@ -77,9 +80,9 @@ logging:
 
 eureka:
   instance:
-    hostname: localhost
+    # Khong set hostname: prefer-ip-address=true -> Eureka dang ky bang IP
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: ${EUREKA_URL}

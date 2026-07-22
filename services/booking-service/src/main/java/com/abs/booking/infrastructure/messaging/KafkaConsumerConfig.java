@@ -32,6 +32,7 @@ public class KafkaConsumerConfig {
         cfg.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         cfg.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
         cfg.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        cfg.put(JsonDeserializer.VALUE_DEFAULT_TYPE, HashMap.class.getName());
         return new DefaultKafkaConsumerFactory<>(cfg);
     }
 

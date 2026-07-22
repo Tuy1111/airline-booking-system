@@ -1,0 +1,174 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      full_deploy: ${{ steps.detect.outputs.full_deploy }}
+      has_deploy_changes: ${{ steps.detect.outputs.has_deploy_changes }}
+      services: ${{ steps.detect.outputs.services }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed services
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: python3 .github/scripts/detect-services.py
+
+  deploy:
+    name: Deploy to VPS
+    needs: changes
+    if: needs.changes.outputs.has_deploy_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create deployment archive
+        run: |
+          ARCHIVE="$RUNNER_TEMP/deploy-package.tar.gz"
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.idea' \
+            --exclude='.planning' \
+            --exclude='docs' \
+            --exclude='**/target' \
+            --exclude='**/build' \
+            --exclude='frontend/frontend/node_modules' \
+            --exclude='frontend/frontend/dist' \
+            --exclude='**/.env' \
+            --exclude='**/*.env' \
+            --exclude='**/*.log' \
+            -czf "$ARCHIVE" .
+          cp "$ARCHIVE" deploy-package.tar.gz
+          du -h deploy-package.tar.gz
+
+      - name: Upload source archive to VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY || secrets.VPS_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.VPS_PASSWORD || secrets.SSH_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 10m
+          source: deploy-package.tar.gz
+          target: /tmp/abs-deploy-${{ github.run_id }}
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY || secrets.VPS_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.VPS_PASSWORD || secrets.SSH_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          # ssh-action mac dinh chi cho remote command chay 10 phut. Build cac
+          # image Maven tren VPS can lau hon, nhung van de lai khoang dem truoc
+          # timeout 60 phut cua toan job.
+          command_timeout: 45m
+          script: |
+            set -eu
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            RELEASE_DIR="/tmp/abs-deploy-${{ github.run_id }}"
+
+            mkdir -p "$DEPLOY_PATH"
+            find "$DEPLOY_PATH" -mindepth 1 -maxdepth 1 \
+              ! -name ".env" \
+              ! -name ".env.*" \
+              -exec rm -rf {} +
+
+            tar -xzf "$RELEASE_DIR/deploy-package.tar.gz" -C "$DEPLOY_PATH"
+            rm -rf "$RELEASE_DIR"
+
+            cd "$DEPLOY_PATH"
+            if [ ! -f .env ] && [ -f .env.example ]; then
+              cp .env.example .env
+            fi
+
+            # Tranh build tat ca image Java cung luc tren VPS it CPU/RAM.
+            export COMPOSE_PARALLEL_LIMIT=2
+            deploy_failed=false
+            full_deploy="${{ needs.changes.outputs.full_deploy }}"
+            target_services="${{ needs.changes.outputs.services }}"
+            wait_for_compose() {
+              if docker compose -f docker-compose.prod.yml up -d "$@" --wait --wait-timeout 600; then
+                return 0
+              fi
+
+              echo "Compose reported unhealthy services. Waiting 45s before a final retry..."
+              sleep 45
+              docker compose -f docker-compose.prod.yml up -d "$@" --wait --wait-timeout 600
+            }
+
+            if [ "$full_deploy" = "true" ]; then
+              docker compose -f docker-compose.prod.yml build
+
+              if ! docker compose -f docker-compose.prod.yml up -d --remove-orphans; then
+                echo "Initial Compose start returned non-zero; waiting for the stack to converge..."
+              fi
+
+              # A dependency can still be inside its health-check start period
+              # when the initial Compose graph is started on a small VPS.
+              if wait_for_compose --remove-orphans; then
+                echo "All services are ready."
+              else
+                deploy_failed=true
+              fi
+            else
+              echo "Deploying changed services: $target_services"
+              # Service names come from the detector's fixed allow-list.
+              docker compose -f docker-compose.prod.yml build $target_services
+              if wait_for_compose --no-deps --force-recreate $target_services; then
+                echo "Changed services are ready."
+              else
+                deploy_failed=true
+              fi
+            fi
+
+            if [ "${deploy_failed:-false}" = "true" ]; then
+              echo "Deployment failed; collecting container diagnostics..."
+              docker compose -f docker-compose.prod.yml ps -a || true
+
+              # Report the containers that can actually block the dependency
+              # graph. The previous diagnostics always tailed RabbitMQ even when
+              # another service was the one that failed.
+              for container_id in $(docker compose -f docker-compose.prod.yml ps -aq); do
+                container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's#^/##')
+                container_status=$(docker inspect --format '{{.State.Status}}' "$container_id")
+                container_health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")
+
+                echo "$container_name: status=$container_status health=$container_health"
+                if [ "$container_status" != "running" ] || { [ "$container_health" != "healthy" ] && [ "$container_health" != "none" ]; }; then
+                  docker logs --tail 200 "$container_id" || true
+                  docker inspect --format '{{json .State}}' "$container_id" || true
+                fi
+              done
+              exit 1
+            fi
+            docker image prune -f
+            docker compose -f docker-compose.prod.yml ps

@@ -1,0 +1,16 @@
+{
+    email {$ACME_EMAIL}
+}
+
+# Browser application. Caddy redirects HTTP to HTTPS and obtains the certificate
+# automatically when app.<DOMAIN> resolves to this host.
+app.{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy frontend:80
+}
+
+# Keycloak must use this public HTTPS hostname for issuer URLs, browser redirects
+# and secure cookies.
+auth.{$DOMAIN} {
+    reverse_proxy keycloak:8180
+}

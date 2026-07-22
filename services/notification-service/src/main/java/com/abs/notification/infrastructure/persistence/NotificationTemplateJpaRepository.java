@@ -1,6 +1,6 @@
 package com.abs.notification.infrastructure.persistence;
 
-import com.abs.notification.domain.vo.Channel;
+import com.abs.notification.domain.enums.Channel;
 import com.abs.notification.domain.vo.NotificationTemplateId;
 import com.abs.notification.infrastructure.persistence.entity.NotificationTemplateEntity;
 import org.springframework.data.jpa.repository.JpaRepository;

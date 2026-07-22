@@ -162,7 +162,6 @@ export function App() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0)
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false)
-  const paymentId = payment?.id
   const paymentBookingId = payment?.bookingId
   const paymentStatus = payment?.status
 
@@ -233,14 +232,19 @@ export function App() {
   // The webhook updates the backend asynchronously, so the payment screen
   // must not rely on the user clicking the manual status-check button.
   useEffect(() => {
-    if (paymentId === undefined || paymentStatus !== 'PENDING') return
+    if (!payment || payment.status !== 'PENDING') return
 
     const intervalId = window.setInterval(async () => {
       try {
-        const latest = await paymentApi.getPayment(paymentId)
+        const latest = await paymentApi.getPayment(payment.id)
         setPayment(latest)
-        if (latest.status === 'FAILED') {
+        if (latest.status === 'SUCCESS') {
+          addToast('success', 'Thanh toán thành công! Vé của bạn đã được xác nhận.')
+          loadUserBookings()
+          loadNotifications()
+        } else if (latest.status === 'FAILED') {
           addToast('error', 'Thanh toán thất bại hoặc đã hết hạn giữ ghế.')
+          loadNotifications()
         }
       } catch (err) {
         console.warn('Could not poll payment status:', err)
@@ -248,7 +252,7 @@ export function App() {
     }, 3000)
 
     return () => window.clearInterval(intervalId)
-  }, [paymentId, paymentStatus])
+  }, [payment?.id, payment?.status])
 
   // Payment and booking are updated by separate services. Keep syncing the
   // booking after payment succeeds, then open the ticket only once confirmed.
@@ -269,6 +273,7 @@ export function App() {
           setPayment(null)
           setHoldResult(null)
           addToast('success', 'Thanh toán thành công. Vé điện tử đã sẵn sàng.')
+          loadNotifications()
         } else if (booking.status !== 'HELD') {
           disposed = true
           setPayment(null)
@@ -512,7 +517,11 @@ export function App() {
     try {
       const res = await paymentApi.getPayment(payment.id)
       setPayment(res)
-      if (res.status !== 'SUCCESS') {
+      if (res.status === 'SUCCESS') {
+        addToast('info', 'Đã nhận thanh toán, đang chờ xác nhận phát hành vé...')
+        loadUserBookings()
+        loadNotifications()
+      } else {
         addToast('info', `Trạng thái thanh toán hiện tại: ${res.status}`)
       }
     } catch (err) {

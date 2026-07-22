@@ -45,7 +45,7 @@ spring:
           max-attempts: 3
           initial-interval: 1s
 
-  # Kafka event consumer (booking.confirmed, booking.cancelled)
+  # Kafka event consumer (payment and booking lifecycle events)
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP}
     consumer:
@@ -65,6 +65,8 @@ app:
     kafka:
       booking-confirmed-topic: booking.confirmed
       booking-cancelled-topic: booking.cancelled
+      payment-completed-topic: payment.completed
+      payment-failed-topic: payment.failed
 
 management:
   endpoints:

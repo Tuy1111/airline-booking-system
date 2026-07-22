@@ -471,7 +471,7 @@ services:
     expose: ["8180"]
     volumes:
       - ./infra/keycloak:/opt/keycloak/data/import
-      - ./infra/keycloak/themes/skyswift:/opt/keycloak/themes/skyswift:ro
+      - ./infra/keycloak/themes:/opt/keycloak/themes:ro
     depends_on:
       postgres:
         condition: service_healthy

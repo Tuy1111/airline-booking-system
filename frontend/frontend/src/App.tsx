@@ -713,7 +713,7 @@ export function App() {
           setActiveTab(tab)
           if (tab === 'search') setStep('list')
         }}
-        user={auth}
+        user={auth && { ...auth, fullName: userProfile?.fullName ?? auth.fullName }}
         onLogin={keycloakLogin}
         onLogout={keycloakLogout}
         onRegister={keycloakRegister}

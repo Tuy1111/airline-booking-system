@@ -427,7 +427,7 @@ services:
     profiles: ["monitoring"]
     ports: ["9090:9090"]
     volumes:
-      - ./infra/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/docker/prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
     networks: [abs]
 
   grafana:
@@ -442,6 +442,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASS:?GRAFANA_PASS chua set trong .env}
       GF_AUTH_ANONYMOUS_ENABLED: "true"
     volumes:
+      - ./infra/docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafanadata:/var/lib/grafana
     networks: [abs]
 

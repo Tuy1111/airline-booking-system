@@ -1,6 +1,7 @@
 package com.abs.booking.infrastructure.messaging;
 
-import com.abs.booking.application.BookingService;
+import com.abs.booking.application.usecase.ConfirmBookingUseCase;
+import com.abs.booking.application.usecase.HandlePaymentFailedUseCase;
 import com.abs.booking.domain.exception.BookingNotFoundException;
 import com.abs.booking.domain.exception.InvalidBookingStateException;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PaymentEventListener {
 
-    private final BookingService bookingService;
+    private final ConfirmBookingUseCase confirmBookingUseCase;
+    private final HandlePaymentFailedUseCase handlePaymentFailedUseCase;
 
     @KafkaListener(topics = "${app.kafka.topics.payment-completed}",
             containerFactory = "kafkaListenerContainerFactory")
@@ -24,7 +26,7 @@ public class PaymentEventListener {
         try {
             Long bookingId = Long.valueOf(payload.get("bookingId").toString());
             String paymentCode = String.valueOf(payload.get("paymentCode"));
-            bookingService.confirmBooking(bookingId, paymentCode);
+            confirmBookingUseCase.execute(bookingId, paymentCode);
         } catch (InvalidBookingStateException e) {
             log.warn("Cannot confirm booking {} due to invalid state: {}", payload.get("bookingId"), e.getMessage());
         } catch (BookingNotFoundException e) {
@@ -42,7 +44,7 @@ public class PaymentEventListener {
         try {
             Long bookingId = Long.valueOf(payload.get("bookingId").toString());
             String reason = payload.containsKey("reason") ? String.valueOf(payload.get("reason")) : "Payment failed";
-            bookingService.handlePaymentFailed(bookingId, reason);
+            handlePaymentFailedUseCase.execute(bookingId, reason);
         } catch (InvalidBookingStateException e) {
             log.warn("Cannot cancel booking {} due to invalid state: {}", payload.get("bookingId"), e.getMessage());
         } catch (BookingNotFoundException e) {

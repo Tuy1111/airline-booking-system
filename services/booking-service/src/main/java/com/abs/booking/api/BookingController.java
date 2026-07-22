@@ -1,9 +1,9 @@
 package com.abs.booking.api;
 
-import com.abs.booking.application.BookingService;
 import com.abs.booking.application.dto.BookingDetailResponse;
 import com.abs.booking.application.dto.HoldSeatRequest;
 import com.abs.booking.application.dto.HoldSeatResponse;
+import com.abs.booking.application.usecase.*;
 import com.abs.booking.domain.vo.BookingStatus;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,22 +14,25 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/bookings")
 @RequiredArgsConstructor
-
 public class BookingController {
 
-    private final BookingService bookingService;
+    private final HoldSeatUseCase holdSeatUseCase;
+    private final GetBookingByIdUseCase getBookingByIdUseCase;
+    private final GetMyBookingsUseCase getMyBookingsUseCase;
+    private final GetAllBookingsUseCase getAllBookingsUseCase;
+    private final CancelBookingUseCase cancelBookingUseCase;
 
     @PostMapping("/hold")
     public ResponseEntity<HoldSeatResponse> holdSeat(
             @Valid @RequestBody HoldSeatRequest request,
             @RequestHeader("X-User-Id") Long userId) {
-        HoldSeatResponse response = bookingService.holdSeat(request, userId);
+        HoldSeatResponse response = holdSeatUseCase.execute(request, userId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<BookingDetailResponse> getBooking(@PathVariable Long id) {
-        BookingDetailResponse response = bookingService.getBookingById(id);
+        BookingDetailResponse response = getBookingByIdUseCase.execute(id);
         return ResponseEntity.ok(response);
     }
 
@@ -39,7 +42,7 @@ public class BookingController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Page<BookingDetailResponse> response = bookingService.getMyBookings(userId, status, page, size);
+        Page<BookingDetailResponse> response = getMyBookingsUseCase.execute(userId, status, page, size);
         return ResponseEntity.ok(response);
     }
 
@@ -49,14 +52,14 @@ public class BookingController {
             @RequestParam(required = false) BookingStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(bookingService.getAllBookings(keyword, status, page, size));
+        return ResponseEntity.ok(getAllBookingsUseCase.execute(keyword, status, page, size));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<BookingDetailResponse> cancelBooking(
             @PathVariable Long id,
             @RequestHeader("X-User-Id") Long userId) {
-        BookingDetailResponse response = bookingService.cancelBooking(id, userId);
+        BookingDetailResponse response = cancelBookingUseCase.execute(id, userId);
         return ResponseEntity.ok(response);
     }
 }

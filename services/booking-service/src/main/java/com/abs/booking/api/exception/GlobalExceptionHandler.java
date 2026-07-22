@@ -1,4 +1,4 @@
-package com.abs.booking.api;
+package com.abs.booking.api.exception;
 
 import com.abs.booking.domain.exception.*;
 import lombok.extern.slf4j.Slf4j;

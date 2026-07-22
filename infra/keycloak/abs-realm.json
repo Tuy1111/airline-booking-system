@@ -3,6 +3,7 @@
   "realm": "airline-booking",
   "displayName": "Airline Booking System",
   "enabled": true,
+  "loginTheme": "skyswift",
   "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "clients": [
